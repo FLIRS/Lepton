@@ -7,8 +7,8 @@
 #include <string.h>
 
 
-#define assert(A, C, F, ...) if (!(A)) {assert_format (__COUNTER__, __FILE__, __LINE__, __func__, #A, #C, C, F, __VA_ARGS__);}
-#define note(C, F, ...) note_format (__COUNTER__, __FILE__, __LINE__, __func__, C, #C, F, __VA_ARGS__)
+#define ASSERT_ACF(A, C, F, ...) if (!(A)) {assert_format (__COUNTER__, __FILE__, __LINE__, __func__, #A, C, #C, F, __VA_ARGS__);}
+#define NOTE(C, F, ...) note_format (__COUNTER__, __FILE__, __LINE__, __func__, C, #C, F, __VA_ARGS__)
 
 
 

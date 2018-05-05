@@ -12,8 +12,8 @@
 #include "crc.h"
 
 
-#ifndef LEP_ASSERT
-#define LEP_ASSERT(A, code, message, ...)
+#ifndef LEP_ASSERT_ACF
+#define LEP_ASSERT_ACF(A, code, message, ...)
 #endif
 
 
@@ -28,8 +28,12 @@
 enum Lep_Result
 {
 	LEP_SUCCESS = 0,
-	LEP_ERROR_SPI = -1,
-	LEP_ERROR_I2C = -2,
+	LEP_ERROR_OPEN = -10,
+	LEP_ERROR_WRITE = -11,
+	LEP_ERROR_NULL = -20,
+	LEP_ERROR_ARG = -21,
+	LEP_ERROR_SPI = -4,
+	LEP_ERROR_I2C = -5,
 	LEP_INFO1 = 1
 };
 
@@ -61,7 +65,7 @@ enum Lep_Result
 //Payload size it the size of the data in each packets.
 #define LEP_PAYLOAD_SIZE 160
 
-//TODO: Why 8 bit?
+//TODO: Is there a reason for using 8 bit per word?
 #define LEP_SPI_BITS_PER_WORD 8
 
 
@@ -270,7 +274,7 @@ int lep_spi_receive (int device, uint8_t * data, size_t count)
 	LEP_NOTE (LEP_INFO1, "SPI_IOC_MESSAGE%s", "");
 	LEP_BEGIN_SYSTEM_CALL;
 	int R = ioctl (device, SPI_IOC_MESSAGE (1), &transfer);
-	LEP_ASSERT (R == (int) count, LEP_ERROR_SPI, "filedescriptor %i. ioctl SPI_IOC_MESSAGE", device);
+	LEP_ASSERT_ACF (R == (int) count, LEP_ERROR_SPI, "filedescriptor %i. ioctl SPI_IOC_MESSAGE", device);
 
 	return R;
 }
@@ -285,7 +289,7 @@ int lep_i2c_open (char const * name)
 	LEP_NOTE (LEP_INFO1, "open (%s, O_RDWR)", name);
 	LEP_BEGIN_SYSTEM_CALL;
 	device = open (name, O_RDWR);
-	LEP_ASSERT (device != -1, LEP_ERROR_I2C, "open%s", "");
+	LEP_ASSERT_ACF (device != -1, LEP_ERROR_I2C, "open%s", "");
 
 	if (device == -1) {return device;}
 	
@@ -293,7 +297,7 @@ int lep_i2c_open (char const * name)
 	LEP_NOTE (LEP_INFO1, "ioctl (%i, I2C_SLAVE, %x)", device, LEP_I2C_ADDRESS);
 	LEP_BEGIN_SYSTEM_CALL;
 	R = ioctl (device, I2C_SLAVE, LEP_I2C_ADDRESS);
-	LEP_ASSERT (device != -1, LEP_ERROR_I2C, "ioctl%s", "");
+	LEP_ASSERT_ACF (device != -1, LEP_ERROR_I2C, "ioctl%s", "");
 	
 	if (R != 0) {return R;}
 
@@ -325,7 +329,7 @@ int lep_i2c_pure_read (int device, uint16_t * data, size_t size8)
 	LEP_NOTE (LEP_INFO1, "read (%i, data, %i)", device, size8);
 	LEP_BEGIN_SYSTEM_CALL;
 	R = read (device, (void *) data, size8);
-	LEP_ASSERT (R == (int) size8, LEP_ERROR_I2C, "Device %i. read", device);
+	LEP_ASSERT_ACF (R == (int) size8, LEP_ERROR_I2C, "Device %i. read", device);
 	lep_be16tohv (data, size8);
 	return R;
 }
@@ -338,7 +342,7 @@ int lep_i2c_pure_write (int device, uint16_t * data, size_t size8)
 	LEP_NOTE (LEP_INFO1, "write (%i, data, %i)", device, size8);
 	LEP_BEGIN_SYSTEM_CALL;
 	R = write (device, (void *) data, size8);
-	LEP_ASSERT (R == (int) size8, LEP_ERROR_I2C, "Device %i. write", device);
+	LEP_ASSERT_ACF (R == (int) size8, LEP_ERROR_I2C, "Device %i. write", device);
 	return R;
 }
 
@@ -346,7 +350,7 @@ int lep_i2c_pure_write (int device, uint16_t * data, size_t size8)
 int lep_i2c_read (int dev, uint16_t reg, void * data, size_t size8)
 {
 	int R;
-	LEP_ASSERT (size8 <= sizeof (uint16_t) * LEP_DATAREG_COUNT, LEP_ERROR_I2C, "%s", "");
+	LEP_ASSERT_ACF (size8 <= sizeof (uint16_t) * LEP_DATAREG_COUNT, LEP_ERROR_I2C, "%s", "");
 	//Select start address to read from.
 	R = lep_i2c_pure_write (dev, &reg, sizeof (uint16_t));
 	//Read from that start address.
@@ -359,7 +363,7 @@ int lep_i2c_write (int dev, uint16_t reg, void * data, size_t size8)
 {
 	int R;
 	//The FLIR Lepton has limited amount of IO registers.
-	LEP_ASSERT (size8 <= sizeof (uint16_t) * LEP_DATAREG_COUNT, LEP_ERROR_I2C, "%s", "");
+	LEP_ASSERT_ACF (size8 <= sizeof (uint16_t) * LEP_DATAREG_COUNT, LEP_ERROR_I2C, "%s", "");
 	//Writing data to address location must be done in a single write.
 	//Conatenate reg & data
 	uint16_t buffer [LEP_DATAREG_COUNT + 1];
@@ -433,6 +437,93 @@ int lep_i2c_com (int dev, uint16_t comid, void * data, size_t size8, uint16_t * 
 	return R;
 }
 
+
+int lep_openf (int oflags, char const * format, ...)
+{
+	char buf [100];
+	int fd;
+	va_list ap;
+	va_start (ap, format);
+	vsnprintf (buf, sizeof (buf), format, ap);
+	printf ("%s\n", buf);
+	LEP_BEGIN_SYSTEM_CALL;
+	fd = open (buf, oflags);
+	LEP_ASSERT_ACF (fd >= 0, LEP_ERROR_OPEN, "%s", buf);
+	LEP_ASSERT_ACF (fd != STDIN_FILENO, LEP_ERROR_OPEN, "%s", buf);
+	LEP_ASSERT_ACF (fd != STDOUT_FILENO, LEP_ERROR_OPEN, "%s", buf);
+	LEP_ASSERT_ACF (fd != STDERR_FILENO, LEP_ERROR_OPEN, "%s", buf);
+	va_end (ap);
+	return fd;
+}
+
+
+int lep_writef (int fd, char const * format, ...)
+{
+	char buf [100];
+	int len;
+	int res;
+	va_list ap;
+	va_start (ap, format);
+	len = vsnprintf (buf, sizeof (buf), format, ap);
+	printf ("%s\n", buf);
+	LEP_BEGIN_SYSTEM_CALL;
+	res = write (fd, buf, len);
+	LEP_ASSERT_ACF (res == len, LEP_ERROR_OPEN, "%s", buf);
+	va_end (ap);
+	return res;
+}
+
+
+int lep_writef_nocheck (int fd, char const * format, ...)
+{
+	char buf [100];
+	int len;
+	int res;
+	va_list ap;
+	va_start (ap, format);
+	len = vsnprintf (buf, sizeof (buf), format, ap);
+	printf ("%s\n", buf);
+	LEP_BEGIN_SYSTEM_CALL;
+	res = write (fd, buf, len);
+	va_end (ap);
+	return res;
+}
+
+
+int lep_isr_init (int pin)
+{
+	int fd;
+	int res;
+	//TODO: unexport, is this preferable?
+	fd = lep_openf (O_WRONLY, "/sys/class/gpio/%s", "unexport");
+	res = lep_writef_nocheck (fd, "%i", pin);
+	close (fd);
+	//Enable the gpio pin.
+	fd = lep_openf (O_WRONLY, "/sys/class/gpio/%s", "export");
+	res = lep_writef (fd, "%i", pin);
+	close (fd);
+	//Set the gpio pin to input
+	fd = lep_openf (O_WRONLY, "/sys/class/gpio/gpio%i/direction", pin);
+	res = lep_writef (fd, "%s", "in");
+	close (fd);
+	//Set the gpio pin to trigger at rising edge.
+	fd = lep_openf (O_WRONLY, "/sys/class/gpio/gpio%i/edge", pin);
+	res = lep_writef (fd, "%s", "rising");
+	close (fd);
+	//Get the fd from the gpio pin.
+	fd = lep_openf (O_RDONLY, "/sys/class/gpio/gpio%i/value", pin);
+	return fd;
+}
+
+
+int lep_isr_quit (int pin, int fd)
+{
+	close (fd);
+	fd = lep_openf (O_WRONLY, "/sys/class/gpio/%s", "unexport");
+	res = lep_writef (fd, "%i", pin);
+	close (fd);
+	return fd;
+}
 
 
 
