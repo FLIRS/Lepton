@@ -4,6 +4,7 @@
 #include "assert_extended.h"
 #include "lep.h"
 #include "crc.h"
+#include "common.h"
 
 
 //printf
@@ -52,13 +53,7 @@ int main (int argc, char * argv [])
 	efd = epoll_create1 (0);
 	ASSERT_ACF (efd > 0, 0, "%s", "");
 	
-	{
-		struct epoll_event ev;
-		ev.events = EPOLLIN | EPOLLPRI | EPOLLET;
-		ev.data.fd = pinfd;
-		int r = epoll_ctl (efd, EPOLL_CTL_ADD, pinfd, &ev);
-		ASSERT_ACF (r == 0, 0, "%s", "");
-	}
+	app_epoll_add (efd, EPOLLIN | EPOLLPRI | EPOLLET, pinfd);
 	
 	while (1)
 	{

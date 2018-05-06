@@ -4,7 +4,7 @@
 #include "assert_extended.h"
 #include "lep.h"
 #include "crc.h"
-
+#include "common.h"
 
 //printf
 #include <stdio.h>
@@ -24,19 +24,13 @@
 
 #include <sys/epoll.h>
 
+
+
 #define APP_EVENT_COUNT 10
 #define APP_SAMPLE_PERIOD 10
 #define APP_VSYNC_GPIOPIN 17
 
-int app_epoll_add (int efd, uint32_t events, int fd)
-{
-	struct epoll_event ev;
-	ev.events = events;
-	ev.data.fd = fd;
-	int r = epoll_ctl (efd, EPOLL_CTL_ADD, fd, &ev);
-	ASSERT_ACF (r == 0, 0, "%s", "");
-	return r;
-}
+
 
 
 int main (int argc, char * argv [])
