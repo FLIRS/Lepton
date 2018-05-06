@@ -101,6 +101,7 @@ enum Lep_Result
 #define LEP_DATAREG_COUNT 16
 
 #define LEP_I2C_DEV_RPI3 "/dev/i2c-1"
+#define LEP_SPI_DEV_RPI3 "/dev/spidev0.0"
 
 
 
@@ -255,6 +256,56 @@ bool lep_check (struct Lep_Packet * packet)
 	packet->reserved = preserve_reserved;
 
 	return success;
+}
+
+
+int lep_spi_open (char const * Name)
+{
+	int dev;
+	int mode = LEP_SPI_MODE;
+	int bpw = LEP_SPI_BITS_PER_WORD;
+	int speed = LEP_SPI_SPEED_RECOMENDED;
+	int res;
+
+	LEP_BEGIN_SYSTEM_CALL;
+	dev = open (Name, O_RDWR, S_IRUSR | S_IWUSR);
+	LEP_ASSERT_ACF (dev != -1, LEP_ERROR_SPI, "open %s", Name);
+	if (dev < 0) {return LEP_ERROR_SPI;}
+
+	LEP_BEGIN_SYSTEM_CALL;
+	res = ioctl (dev, SPI_IOC_WR_MODE, &mode);
+	LEP_ASSERT_ACF (res != -1, LEP_ERROR_SPI, "dev %i. can't set spi mode", dev);
+	if (res == -1) {return LEP_ERROR_SPI;}
+	
+	LEP_BEGIN_SYSTEM_CALL;
+	res = ioctl (dev, SPI_IOC_WR_MAX_SPEED_HZ, &speed);
+	LEP_ASSERT_ACF (res != -1, LEP_ERROR_SPI,"dev %i. can't set max speed hz", dev);
+	if (res == -1) {return LEP_ERROR_SPI;}
+
+	LEP_BEGIN_SYSTEM_CALL;
+	res = ioctl (dev, SPI_IOC_WR_BITS_PER_WORD, &bpw);
+	LEP_ASSERT_ACF (res != -1, LEP_ERROR_SPI, "dev %i. can't set bits per word", dev);
+	if (res == -1) {return LEP_ERROR_SPI;}
+
+	LEP_BEGIN_SYSTEM_CALL;
+	res = ioctl (dev, SPI_IOC_RD_MODE, &mode);
+	LEP_ASSERT_ACF (res != -1, LEP_ERROR_SPI, "dev %i. can't get spi mode", dev);
+	LEP_ASSERT_ACF (mode == LEP_SPI_MODE, LEP_ERROR_SPI, "dev %i. ", dev);
+	if (res == -1) {return LEP_ERROR_SPI;}
+
+	LEP_BEGIN_SYSTEM_CALL;
+	res = ioctl (dev, SPI_IOC_RD_BITS_PER_WORD, &bpw);
+	LEP_ASSERT_ACF (res != -1, LEP_ERROR_SPI, "dev %i. can't get bits per word", dev);
+	LEP_ASSERT_ACF (bpw == LEP_SPI_BITS_PER_WORD, LEP_ERROR_SPI, "dev %i. ", dev);
+	if (res == -1) {return LEP_ERROR_SPI;}
+
+	LEP_BEGIN_SYSTEM_CALL;
+	res = ioctl (dev, SPI_IOC_RD_MAX_SPEED_HZ, &speed);
+	LEP_ASSERT_ACF (res != -1, LEP_ERROR_SPI, "dev %i. can't get max speed hz", dev);
+	LEP_ASSERT_ACF (speed == LEP_SPI_SPEED_RECOMENDED, LEP_ERROR_SPI, "dev %i. ", dev);
+	if (res == -1) {return LEP_ERROR_SPI;}
+
+	return dev;
 }
 
 

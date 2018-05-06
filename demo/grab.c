@@ -25,6 +25,18 @@
 
 #include <sys/epoll.h>
 
+void app_read_packet (int dev)
+{
+	struct Lep_Packet pack [LEP2_HEIGHT];
+	lep_spi_receive (dev, (uint8_t *) &pack, sizeof (pack));
+	for (size_t i = 0; i < 20; i = i + 1)
+	{
+		uint8_t * x = (uint8_t *) pack;
+		printf ("%02x", x [i]);
+	}
+	printf ("\n");
+}
+
 
 
 int main (int argc, char * argv [])
@@ -45,6 +57,7 @@ int main (int argc, char * argv [])
 	int tfd;
 	int pinfd;
 	int counter = 0;
+	int dev = lep_spi_open (LEP_SPI_DEV_RPI3);
 	
 	struct epoll_event events [10];
 	
@@ -66,7 +79,7 @@ int main (int argc, char * argv [])
 	efd = epoll_create1 (0);
 	ASSERT_ACF (efd > 0, 0, "%s", "");
 	
-	app_epoll_add (efd, EPOLLIN | EPOLLET, tfd);
+	//app_epoll_add (efd, EPOLLIN | EPOLLET, tfd);
 	app_epoll_add (efd, EPOLLIN | EPOLLPRI | EPOLLET, pinfd);
 	
 	
@@ -80,6 +93,7 @@ int main (int argc, char * argv [])
 		{
 			if (events [i].data.fd == pinfd)
 			{
+				app_read_packet (dev);
 				char c;
 				lseek (pinfd, 0, SEEK_SET);
 				int res = read (pinfd, &c, 1);
