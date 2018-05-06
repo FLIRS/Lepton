@@ -57,7 +57,9 @@ enum Lep_Result
 #define LEP_SPI_SPEED_MAX 20000000
 #define LEP_SPI_SPEED_RECOMENDED 16000000
 
-#define LEP_PACKET_PER_SEC 27
+//Not exactly
+#define LEP2_PACKET_PER_SEC 27
+#define LEP3_PACKET_PER_SEC 108
 
 //Each packet is the same size.
 #define LEP_PACKET_SIZE 164
@@ -516,8 +518,13 @@ int lep_isr_init (int pin)
 }
 
 
+
+//Do we need two int id's for one pin?
+//One for the physical gpio pin and one for file descriptor.
+//TODO: how to implement isr using one int?
 int lep_isr_quit (int pin, int fd)
 {
+	int res;
 	close (fd);
 	fd = lep_openf (O_WRONLY, "/sys/class/gpio/%s", "unexport");
 	res = lep_writef (fd, "%i", pin);
