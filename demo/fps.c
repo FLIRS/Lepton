@@ -102,7 +102,7 @@ int main (int argc, char * argv [])
 				uint64_t m;
 				int res = read (tfd, &m, sizeof (m));
 				ASSERT_ACF (res == sizeof (m), 0, "%s", "");
-				printf ("%i syncs in %i sec\n", (int) counter, (int) APP_SAMPLE_PERIOD);
+				printf ("%i syncs per %i sec\n", (int) counter, (int) APP_SAMPLE_PERIOD);
 				printf ("SPS %f\n", (float) counter / APP_SAMPLE_PERIOD);
 				counter = 0;
 			}

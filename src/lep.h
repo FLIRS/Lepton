@@ -12,13 +12,19 @@
 #include "crc.h"
 
 
+//Assert is optional.
+//All possable outcomes should be asserted.
+//exp: Assertion expression
+//code: 
+//format: string format
 #ifndef LEP_ASSERT_ACF
-#define LEP_ASSERT_ACF(A, code, message, ...)
+#define LEP_ASSERT_ACF(exp, code, format, ...)
 #endif
 
 
-#ifndef LEP_NOTE
-#define LEP_NOTE(code, message, ...)
+//
+#ifndef LEP_TRACE
+#define LEP_TRACE(code, message, ...)
 #endif
 
 
@@ -34,6 +40,7 @@ enum Lep_Result
 	LEP_ERROR_ARG = -21,
 	LEP_ERROR_SPI = -4,
 	LEP_ERROR_I2C = -5,
+	LEP_ERROR_RANGE = -124,
 	LEP_INFO1 = 1
 };
 
@@ -273,7 +280,7 @@ int lep_spi_receive (int device, uint8_t * data, size_t count)
 	memset ((void *) data, 0, count);
 	
 	//ioctl SPI_IOC_MESSAGE returns the number of elements transfered.
-	LEP_NOTE (LEP_INFO1, "SPI_IOC_MESSAGE%s", "");
+	LEP_TRACE (LEP_INFO1, "SPI_IOC_MESSAGE%s", "");
 	LEP_BEGIN_SYSTEM_CALL;
 	int R = ioctl (device, SPI_IOC_MESSAGE (1), &transfer);
 	LEP_ASSERT_ACF (R == (int) count, LEP_ERROR_SPI, "filedescriptor %i. ioctl SPI_IOC_MESSAGE", device);
@@ -282,30 +289,23 @@ int lep_spi_receive (int device, uint8_t * data, size_t count)
 }
 
 
-
 int lep_i2c_open (char const * name)
 {
-	int device;
-
-	
-	LEP_NOTE (LEP_INFO1, "open (%s, O_RDWR)", name);
+	LEP_ASSERT_ACF (name != NULL, LEP_ERROR_NULL, "%s", "");
+	int dev;
+	LEP_TRACE (LEP_INFO1, "open (%s, O_RDWR)", name);
 	LEP_BEGIN_SYSTEM_CALL;
-	device = open (name, O_RDWR);
-	LEP_ASSERT_ACF (device != -1, LEP_ERROR_I2C, "open%s", "");
-
-	if (device == -1) {return device;}
-	
-	int R;
-	LEP_NOTE (LEP_INFO1, "ioctl (%i, I2C_SLAVE, %x)", device, LEP_I2C_ADDRESS);
+	dev = open (name, O_RDWR);
+	LEP_ASSERT_ACF (dev != -1, LEP_ERROR_I2C, "open%s", "")
+	if (dev == -1) {return LEP_ERROR_OPEN;}
+	int res;
+	LEP_TRACE (LEP_INFO1, "ioctl (%i, I2C_SLAVE, %x)", device, LEP_I2C_ADDRESS);
 	LEP_BEGIN_SYSTEM_CALL;
-	R = ioctl (device, I2C_SLAVE, LEP_I2C_ADDRESS);
-	LEP_ASSERT_ACF (device != -1, LEP_ERROR_I2C, "ioctl%s", "");
-	
-	if (R != 0) {return R;}
-
-	return device;
+	res = ioctl (dev, I2C_SLAVE, LEP_I2C_ADDRESS);
+	LEP_ASSERT_ACF (dev != -1, LEP_ERROR_I2C, "ioctl%s", "");
+	if (res != 0) {return LEP_ERROR_I2C;}
+	return dev;
 }
-
 
 
 void lep_htobe16v (uint16_t * data, size_t size8)
@@ -316,6 +316,7 @@ void lep_htobe16v (uint16_t * data, size_t size8)
 	}
 }
 
+
 void lep_be16tohv (uint16_t * data, size_t size8)
 {
 	for (size_t I = 0; I < (size8 / 2); I = I + 1)
@@ -324,28 +325,31 @@ void lep_be16tohv (uint16_t * data, size_t size8)
 	}
 }
 
+
 //Read.
 int lep_i2c_pure_read (int device, uint16_t * data, size_t size8)
 {
-	int R;
-	LEP_NOTE (LEP_INFO1, "read (%i, data, %i)", device, size8);
+	int res;
+	LEP_TRACE (LEP_INFO1, "read (%i, data, %i)", device, size8);
 	LEP_BEGIN_SYSTEM_CALL;
-	R = read (device, (void *) data, size8);
-	LEP_ASSERT_ACF (R == (int) size8, LEP_ERROR_I2C, "Device %i. read", device);
+	res = read (device, (void *) data, size8);
+	LEP_ASSERT_ACF (res == (int) size8, LEP_ERROR_I2C, "Device %i. read", device);
+	if (res != (int) size8) {return LEP_ERROR_WRITE;}
 	lep_be16tohv (data, size8);
-	return R;
+	return res;
 }
 
 //Read.
 int lep_i2c_pure_write (int device, uint16_t * data, size_t size8)
 {
-	int R;
+	int res;
 	lep_htobe16v (data, size8);
-	LEP_NOTE (LEP_INFO1, "write (%i, data, %i)", device, size8);
+	LEP_TRACE (LEP_INFO1, "write (%i, data, %i)", device, size8);
 	LEP_BEGIN_SYSTEM_CALL;
-	R = write (device, (void *) data, size8);
-	LEP_ASSERT_ACF (R == (int) size8, LEP_ERROR_I2C, "Device %i. write", device);
-	return R;
+	res = write (device, (void *) data, size8);
+	LEP_ASSERT_ACF (res == (int) size8, LEP_ERROR_I2C, "Device %i. write", device);
+	if (res != (int) size8) {return LEP_ERROR_WRITE;}
+	return res;
 }
 
 
@@ -396,22 +400,22 @@ int lep_i2c_com (int dev, uint16_t comid, void * data, size_t size8, uint16_t * 
 {
 	int R;
 	R = lep_i2c_read1 (dev, LEP_REG_STATUS, status);
-	if (R <= 0) {return R;}
+	if (R < 0) {return R;}
 	if (*status & LEP_STATUS_BUSY) {return -2;};
 	if (!(*status & LEP_STATUS_BOOTMODE)) {return -2;};
 	if (!(*status & LEP_STATUS_BOOTSTATUS)) {return -2;};
 	//Set the data length register for setting or getting values.
 	R = lep_i2c_write1 (dev, LEP_REG_LENGTH, size8 / 2);
-	if (R <= 0) {return R;}
+	if (R < 0) {return R;}
 	
 	switch (comid & LEP_COMTYPE_MASK)
 	{
 		//Get a module property or attribute value
 		case LEP_COMTYPE_GET:
 		R = lep_i2c_write1 (dev, LEP_REG_COMMAND, comid);
-		if (R <= 0) {return R;}
+		if (R < 0) {return R;}
 		R = lep_i2c_read1 (dev, LEP_REG_STATUS, status);
-		if (R <= 0) {return R;}
+		if (R < 0) {return R;}
 		if (*status != LEP_STATUS_OK) {return -3;};
 		R = lep_i2c_read (dev, LEP_REG_DATA0, data, size8);
 		break;
@@ -419,20 +423,20 @@ int lep_i2c_com (int dev, uint16_t comid, void * data, size_t size8, uint16_t * 
 		//Set a module property or attribute value
 		case LEP_COMTYPE_SET:
 		R = lep_i2c_write (dev, LEP_REG_DATA0, data, size8);
-		if (R <= 0) {return R;}
+		if (R < 0) {return R;}
 		R = lep_i2c_write1 (dev, LEP_REG_COMMAND, comid);
-		if (R <= 0) {return R;}
+		if (R < 0) {return R;}
 		R = lep_i2c_read1 (dev, LEP_REG_STATUS, status);
-		if (R <= 0) {return R;}
+		if (R < 0) {return R;}
 		if (*status != LEP_STATUS_OK) {return -4;};
 		break;
 		
 		//Run – execute a camera operation exposed by that module
 		case LEP_COMTYPE_RUN:
 		R = lep_i2c_write1 (dev, LEP_REG_COMMAND, comid);
-		if (R <= 0) {return R;}
+		if (R < 0) {return R;}
 		R = lep_i2c_read1 (dev, LEP_REG_STATUS, status);
-		if (R <= 0) {return R;}
+		if (R < 0) {return R;}
 		if (*status != LEP_STATUS_OK) {return -5;};
 		break;
 	}
@@ -446,15 +450,13 @@ int lep_openf (int oflags, char const * format, ...)
 	int fd;
 	va_list ap;
 	va_start (ap, format);
-	vsnprintf (buf, sizeof (buf), format, ap);
-	printf ("%s\n", buf);
+	int len = vsnprintf (buf, sizeof (buf), format, ap);
+	va_end (ap);
+	LEP_ASSERT_ACF (len > 0, LEP_ERROR_ARG, "%s", "");
+	LEP_TRACE (LEP_INFO1, "open %s", buf);
 	LEP_BEGIN_SYSTEM_CALL;
 	fd = open (buf, oflags);
 	LEP_ASSERT_ACF (fd >= 0, LEP_ERROR_OPEN, "%s", buf);
-	LEP_ASSERT_ACF (fd != STDIN_FILENO, LEP_ERROR_OPEN, "%s", buf);
-	LEP_ASSERT_ACF (fd != STDOUT_FILENO, LEP_ERROR_OPEN, "%s", buf);
-	LEP_ASSERT_ACF (fd != STDERR_FILENO, LEP_ERROR_OPEN, "%s", buf);
-	va_end (ap);
 	return fd;
 }
 
@@ -467,12 +469,14 @@ int lep_writef (int fd, char const * format, ...)
 	va_list ap;
 	va_start (ap, format);
 	len = vsnprintf (buf, sizeof (buf), format, ap);
-	printf ("%s\n", buf);
+	va_end (ap);
+	LEP_ASSERT_ACF (len > 0, LEP_ERROR_ARG, "%s", "");
+	LEP_TRACE (LEP_INFO1, "%s", buf);
 	LEP_BEGIN_SYSTEM_CALL;
 	res = write (fd, buf, len);
 	LEP_ASSERT_ACF (res == len, LEP_ERROR_OPEN, "%s", buf);
-	va_end (ap);
-	return res;
+	if (res != len) {return LEP_ERROR_WRITE;}
+	return LEP_SUCCESS;
 }
 
 
@@ -485,9 +489,11 @@ int lep_writef_nocheck (int fd, char const * format, ...)
 	va_start (ap, format);
 	len = vsnprintf (buf, sizeof (buf), format, ap);
 	printf ("%s\n", buf);
+	LEP_ASSERT_ACF (len > 0, LEP_ERROR_ARG, "%s", "");
 	LEP_BEGIN_SYSTEM_CALL;
 	res = write (fd, buf, len);
 	va_end (ap);
+	if (res != len) {return LEP_ERROR_WRITE;}
 	return res;
 }
 
