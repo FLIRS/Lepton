@@ -24,7 +24,9 @@
 
 #include <sys/epoll.h>
 
-
+#define APP_EVENT_COUNT 10
+#define APP_SAMPLE_PERIOD 10
+#define APP_VSYNC_GPIOPIN 17
 
 int app_epoll_add (int efd, uint32_t events, int fd)
 {
@@ -56,22 +58,22 @@ int main (int argc, char * argv [])
 	int pinfd;
 	int counter = 0;
 	
-	struct epoll_event events [10];
+	struct epoll_event events [APP_EVENT_COUNT];
 	
 	tfd = timerfd_create (CLOCK_MONOTONIC, 0);
 	ASSERT_ACF (tfd > 0, 0, "%s", "");
 	
 	{
 		struct itimerspec ts;
-		ts.it_interval.tv_sec = 1;
+		ts.it_interval.tv_sec = APP_SAMPLE_PERIOD;
 		ts.it_interval.tv_nsec = 0;
-		ts.it_value.tv_sec = 1;
+		ts.it_value.tv_sec = APP_SAMPLE_PERIOD;
 		ts.it_value.tv_nsec = 0;
 		int r = timerfd_settime (tfd, 0, &ts, NULL);
 		ASSERT_ACF (r == 0, 0, "%s", "");
 	}
 	
-	pinfd = lep_isr_init (17);
+	pinfd = lep_isr_init (APP_VSYNC_GPIOPIN);
 	printf ("pinfd %i\n", pinfd);
 	efd = epoll_create1 (0);
 	ASSERT_ACF (efd > 0, 0, "%s", "");
@@ -82,10 +84,8 @@ int main (int argc, char * argv [])
 	
 	while (1)
 	{
-		//printf ("waiting for events...\n");
-		int n = epoll_wait (efd, events, 10, -1);
+		int n = epoll_wait (efd, events, APP_EVENT_COUNT, -1);
 		ASSERT_ACF (n > 0, 0, "%s", "");
-		//printf ("new events %i!\n", n);
 		for (int i = 0; i < n; i = i + 1)
 		{
 			if (events [i].data.fd == pinfd)
@@ -102,7 +102,8 @@ int main (int argc, char * argv [])
 				uint64_t m;
 				int res = read (tfd, &m, sizeof (m));
 				ASSERT_ACF (res == sizeof (m), 0, "%s", "");
-				printf ("tfd %i\n", counter);
+				printf ("%i packages in %i sec\n", (int) counter, (int) APP_SAMPLE_PERIOD);
+				printf ("PPS %f\n", (float) counter / APP_SAMPLE_PERIOD);
 				counter = 0;
 			}
 		}

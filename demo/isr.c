@@ -31,6 +31,18 @@
 
 int main (int argc, char * argv [])
 {
+	int C = 1;
+	while (C != -1)
+	{
+		C = getopt (argc, argv, "");
+		switch (C)
+		{	
+			default:
+			break;
+		}
+	}
+	
+	
 	int efd;
 	struct epoll_event events [10];
 	int pinfd;

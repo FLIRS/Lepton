@@ -503,14 +503,17 @@ int lep_isr_init (int pin)
 	//Enable the gpio pin.
 	fd = lep_openf (O_WRONLY, "/sys/class/gpio/%s", "export");
 	res = lep_writef (fd, "%i", pin);
+	if (res < 0) {return res;}
 	close (fd);
 	//Set the gpio pin to input
 	fd = lep_openf (O_WRONLY, "/sys/class/gpio/gpio%i/direction", pin);
 	res = lep_writef (fd, "%s", "in");
+	if (res < 0) {return res;}
 	close (fd);
 	//Set the gpio pin to trigger at rising edge.
 	fd = lep_openf (O_WRONLY, "/sys/class/gpio/gpio%i/edge", pin);
 	res = lep_writef (fd, "%s", "rising");
+	if (res < 0) {return res;}
 	close (fd);
 	//Get the fd from the gpio pin.
 	fd = lep_openf (O_RDONLY, "/sys/class/gpio/gpio%i/value", pin);
@@ -528,7 +531,7 @@ int lep_isr_quit (int pin, int fd)
 	close (fd);
 	fd = lep_openf (O_WRONLY, "/sys/class/gpio/%s", "unexport");
 	res = lep_writef (fd, "%i", pin);
-	close (fd);
+	if (res < 0) {return res;}
 	return fd;
 }
 
