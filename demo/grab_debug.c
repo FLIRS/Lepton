@@ -1,7 +1,6 @@
 #define LEP_ASSERT_CF(A,C,F,...) ASSERT_CF(A,C,F,__VA_ARGS__)
 //#define LEP_NOTE(C,F,...) note(C,F,__VA_ARGS__)
 
-#include "tcol.h"
 #include "debug.h"
 #include "lep.h"
 #include "crc.h"
@@ -36,31 +35,21 @@ void app_read_packet (int dev)
 	struct Lep_Packet pack [LEP2_HEIGHT];
 	lep_spi_receive (dev, (uint8_t *) pack, sizeof (pack));
 	
-	//Sync frames
-	//if (!lep_check (pack)) 
-	if ((pack [0].reserved & 0x0F) == 0x0F)
+	if (!lep_check (pack)) 
+	//if ((pack [0].reserved & 0x0F) == 0x0F)
 	{
-		//TODO: wtf is this a good solution?.
-		usleep (185000);
+		usleep (app_error_frames); 
 		app_error_frames ++; 
-		printf ("e : %04i\n", app_error_frames);
+		printf ("e : %i\n", app_error_frames);
 		return;
 	}
 	app_error_frames = 0;
 	
-	//Sync segements
 	if (lep_check (pack + 20) && (pack [20].number != 20)) 
-	{
-		lep_spi_receive (dev, (uint8_t *) pack, LEP_PACKET_SIZE); 
-		return;
-	}
-	
+	{lep_spi_receive (dev, (uint8_t *) pack, LEP_PACKET_SIZE); return;}
 	
 	for (size_t i = 0; i < LEP2_HEIGHT; i = i + 1)
 	{
-		//printf ("%02i : ", i);
-		//app_print_byte_str ((uint8_t *)(pack + i), 10);
-		//printf ("\n");
 		if (lep_check (pack + i)) {printf ("%s", TCOL (TCOL_BOLD, TCOL_GREEN, TCOL_DEFAULT));}
 		else {printf ("%s", TCOL (TCOL_BOLD, TCOL_RED, TCOL_DEFAULT));}
 		printf ("%02x ", pack [i].number);
@@ -70,17 +59,18 @@ void app_read_packet (int dev)
 }
 
 
+
 int main (int argc, char * argv [])
 {
-	while (1)
+	int C = 1;
+	while (C != -1)
 	{
-		int C = getopt (argc, argv, "");
+		C = getopt (argc, argv, "");
 		switch (C)
 		{	
 			default:
 			break;
 		}
-		if (C == -1){break;}
 	}
 	
 	

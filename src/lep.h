@@ -77,6 +77,8 @@ enum Lep_Result
 //TODO: Is there a reason for using 8 bit per word?
 #define LEP_SPI_BITS_PER_WORD 8
 
+//FLIR Lepton uses 16 bit I2C registers.
+#define LEP_REG_SIZE 16
 
 
 //Width and hight by pixels.
@@ -377,7 +379,8 @@ void lep_be16tohv (uint16_t * data, size_t size8)
 }
 
 
-//Read.
+//Pure read does not know which register it reads from.
+//Handles endianess.
 int lep_i2c_pure_read (int device, uint16_t * data, size_t size8)
 {
 	int res;
@@ -390,7 +393,9 @@ int lep_i2c_pure_read (int device, uint16_t * data, size_t size8)
 	return res;
 }
 
-//Read.
+
+//Pure write does not know which register it writes to.
+//Handles endianess.
 int lep_i2c_pure_write (int device, uint16_t * data, size_t size8)
 {
 	int res;
@@ -404,6 +409,7 @@ int lep_i2c_pure_write (int device, uint16_t * data, size_t size8)
 }
 
 
+//Read data from a selected register.
 int lep_i2c_read (int dev, uint16_t reg, void * data, size_t size8)
 {
 	int R;
@@ -416,6 +422,7 @@ int lep_i2c_read (int dev, uint16_t reg, void * data, size_t size8)
 }
 
 
+//Write data to a selected register.
 int lep_i2c_write (int dev, uint16_t reg, void * data, size_t size8)
 {
 	int R;
@@ -486,6 +493,7 @@ int lep_i2c_com (int dev, uint16_t comid, void * data, size_t size8, uint16_t * 
 		case LEP_COMTYPE_RUN:
 		R = lep_i2c_write1 (dev, LEP_REG_COMMAND, comid);
 		if (R < 0) {return R;}
+		if (comid & LEP_COMID_REBOOT) {break;}
 		R = lep_i2c_read1 (dev, LEP_REG_STATUS, status);
 		if (R < 0) {return R;}
 		if (*status != LEP_STATUS_OK) {return -5;};
@@ -587,9 +595,11 @@ int lep_isr_quit (int pin, int fd)
 	int res;
 	close (fd);
 	fd = lep_openf (O_WRONLY, "/sys/class/gpio/%s", "unexport");
+	if (fd < 0) {return fd;}
 	res = lep_writef (fd, "%i", pin);
+	close (fd);
 	if (res < 0) {return res;}
-	return fd;
+	return 0;
 }
 
 

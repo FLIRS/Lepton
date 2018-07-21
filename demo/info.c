@@ -61,6 +61,19 @@ int app_set_gpio (int dev, uint16_t mode)
 	return res;
 }
 
+
+int app_reboot (int dev)
+{
+	uint16_t status = 0;
+	int res;
+	printf ("rebooting..");
+	res = lep_i2c_com (dev, LEP_COMID_REBOOT | LEP_COMTYPE_RUN, NULL, 0, &status);
+	sleep (2);
+	printf (".\n");
+	return res;
+}
+
+
 int app_print_gpio (int dev)
 {
 	uint16_t status = 0;
@@ -81,7 +94,7 @@ int main (int argc, char * argv [])
 	int C = 1;
 	while (C != -1)
 	{
-		C = getopt (argc, argv, "stv:");
+		C = getopt (argc, argv, "strv:");
 		switch (C)
 		{
 			case '?':
@@ -109,6 +122,11 @@ int main (int argc, char * argv [])
 			
 			case 't':
 			app_print_temp (dev);
+			sleep (1);
+			break;
+			
+			case 'r':
+			app_reboot (dev);
 			break;
 			
 			default:

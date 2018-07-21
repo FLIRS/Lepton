@@ -10,7 +10,9 @@ project Build is
 		"fps.c",
 		"info.c",
 		"grab.c",
+		"grab_debug.c",
 		"isr.c",
+		"wpi.c",
 		"default.c"
 	);
 	
@@ -22,7 +24,7 @@ project Build is
 	
 	
 	package Builder is 
-		for Switches ("C") use 
+		Sw := 
 		(
 			"-std=gnu11", 
 			"-fdiagnostics-color", 
@@ -38,7 +40,12 @@ project Build is
 			"-Wno-error=unused-but-set-variable",
 			"-march=native"
 		);
+		for Switches ("C") use Sw;
 	end Builder;
 	
+	
+	package Linker is
+		for Switches ("wpi.c") use ("-lwiringPi");
+	end Linker;
 	
 end Build;
