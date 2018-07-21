@@ -216,7 +216,7 @@ struct __attribute__((__packed__)) Lep_Packet
 	//The payload field is lcoated at bytes 4 .. 164.
 	union
 	{
-		uint8_t payload [LEP_PACKET_SIZE];
+		uint8_t payload [LEP_PAYLOAD_SIZE];
 		//Lepton 2 and 3 has the same width in the packet.
 		uint16_t line [LEP2_WIDTH];
 	};
