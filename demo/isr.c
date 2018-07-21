@@ -1,7 +1,7 @@
-#define LEP_ASSERT_ACF(A,C,F,...) ASSERT_ACF(A,C,F,__VA_ARGS__)
+#define LEP_ASSERT_CF(A,C,F,...) ASSERT_CF(A,C,F,__VA_ARGS__)
 //#define LEP_NOTE(C,F,...) note(C,F,__VA_ARGS__)
 
-#include "assert_extended.h"
+#include "debug.h"
 #include "lep.h"
 #include "crc.h"
 #include "common.h"
@@ -51,7 +51,7 @@ int main (int argc, char * argv [])
 	pinfd = lep_isr_init (17);
 	printf ("pinfd %i\n", pinfd);
 	efd = epoll_create1 (0);
-	ASSERT_ACF (efd > 0, 0, "%s", "");
+	ASSERT_F (efd > 0, "%s", "");
 	
 	app_epoll_add (efd, EPOLLIN | EPOLLPRI | EPOLLET, pinfd);
 	
@@ -59,7 +59,7 @@ int main (int argc, char * argv [])
 	{
 		printf ("waiting for events...\n");
 		int n = epoll_wait (efd, events, 10, -1);
-		ASSERT_ACF (n > 0, 0, "%s", "");
+		ASSERT_F (n > 0, "%s", "");
 		printf ("new events %i!\n", n);
 		for (int i = 0; i < n; i = i + 1)
 		{

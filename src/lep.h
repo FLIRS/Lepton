@@ -17,8 +17,8 @@
 //exp: Assertion expression
 //code: 
 //format: string format
-#ifndef LEP_ASSERT_ACF
-#define LEP_ASSERT_ACF(exp, code, format, ...)
+#ifndef LEP_ASSERT_F
+#define LEP_ASSERT_F(exp, format, ...)
 #endif
 
 
@@ -269,40 +269,40 @@ int lep_spi_open (char const * Name)
 
 	LEP_BEGIN_SYSTEM_CALL;
 	dev = open (Name, O_RDWR, S_IRUSR | S_IWUSR);
-	LEP_ASSERT_ACF (dev != -1, LEP_ERROR_SPI, "open %s", Name);
+	LEP_ASSERT_CF (dev != -1, LEP_ERROR_SPI, "open %s", Name);
 	if (dev < 0) {return LEP_ERROR_SPI;}
 
 	LEP_BEGIN_SYSTEM_CALL;
 	res = ioctl (dev, SPI_IOC_WR_MODE, &mode);
-	LEP_ASSERT_ACF (res != -1, LEP_ERROR_SPI, "dev %i. can't set spi mode", dev);
+	LEP_ASSERT_CF (res != -1, LEP_ERROR_SPI, "dev %i. can't set spi mode", dev);
 	if (res == -1) {return LEP_ERROR_SPI;}
 	
 	LEP_BEGIN_SYSTEM_CALL;
 	res = ioctl (dev, SPI_IOC_WR_MAX_SPEED_HZ, &speed);
-	LEP_ASSERT_ACF (res != -1, LEP_ERROR_SPI,"dev %i. can't set max speed hz", dev);
+	LEP_ASSERT_CF (res != -1, LEP_ERROR_SPI,"dev %i. can't set max speed hz", dev);
 	if (res == -1) {return LEP_ERROR_SPI;}
 
 	LEP_BEGIN_SYSTEM_CALL;
 	res = ioctl (dev, SPI_IOC_WR_BITS_PER_WORD, &bpw);
-	LEP_ASSERT_ACF (res != -1, LEP_ERROR_SPI, "dev %i. can't set bits per word", dev);
+	LEP_ASSERT_CF (res != -1, LEP_ERROR_SPI, "dev %i. can't set bits per word", dev);
 	if (res == -1) {return LEP_ERROR_SPI;}
 
 	LEP_BEGIN_SYSTEM_CALL;
 	res = ioctl (dev, SPI_IOC_RD_MODE, &mode);
-	LEP_ASSERT_ACF (res != -1, LEP_ERROR_SPI, "dev %i. can't get spi mode", dev);
-	LEP_ASSERT_ACF (mode == LEP_SPI_MODE, LEP_ERROR_SPI, "dev %i. ", dev);
+	LEP_ASSERT_CF (res != -1, LEP_ERROR_SPI, "dev %i. can't get spi mode", dev);
+	LEP_ASSERT_CF (mode == LEP_SPI_MODE, LEP_ERROR_SPI, "dev %i. ", dev);
 	if (res == -1) {return LEP_ERROR_SPI;}
 
 	LEP_BEGIN_SYSTEM_CALL;
 	res = ioctl (dev, SPI_IOC_RD_BITS_PER_WORD, &bpw);
-	LEP_ASSERT_ACF (res != -1, LEP_ERROR_SPI, "dev %i. can't get bits per word", dev);
-	LEP_ASSERT_ACF (bpw == LEP_SPI_BITS_PER_WORD, LEP_ERROR_SPI, "dev %i. ", dev);
+	LEP_ASSERT_CF (res != -1, LEP_ERROR_SPI, "dev %i. can't get bits per word", dev);
+	LEP_ASSERT_CF (bpw == LEP_SPI_BITS_PER_WORD, LEP_ERROR_SPI, "dev %i. ", dev);
 	if (res == -1) {return LEP_ERROR_SPI;}
 
 	LEP_BEGIN_SYSTEM_CALL;
 	res = ioctl (dev, SPI_IOC_RD_MAX_SPEED_HZ, &speed);
-	LEP_ASSERT_ACF (res != -1, LEP_ERROR_SPI, "dev %i. can't get max speed hz", dev);
-	LEP_ASSERT_ACF (speed == LEP_SPI_SPEED_RECOMENDED, LEP_ERROR_SPI, "dev %i. ", dev);
+	LEP_ASSERT_CF (res != -1, LEP_ERROR_SPI, "dev %i. can't get max speed hz", dev);
+	LEP_ASSERT_CF (speed == LEP_SPI_SPEED_RECOMENDED, LEP_ERROR_SPI, "dev %i. ", dev);
 	if (res == -1) {return LEP_ERROR_SPI;}
 
 	return dev;
@@ -334,7 +334,7 @@ int lep_spi_receive (int device, uint8_t * data, size_t count)
 	LEP_TRACE (LEP_INFO1, "SPI_IOC_MESSAGE%s", "");
 	LEP_BEGIN_SYSTEM_CALL;
 	int R = ioctl (device, SPI_IOC_MESSAGE (1), &transfer);
-	LEP_ASSERT_ACF (R == (int) count, LEP_ERROR_SPI, "filedescriptor %i. ioctl SPI_IOC_MESSAGE", device);
+	LEP_ASSERT_CF (R == (int) count, LEP_ERROR_SPI, "filedescriptor %i. ioctl SPI_IOC_MESSAGE", device);
 
 	return R;
 }
@@ -342,18 +342,18 @@ int lep_spi_receive (int device, uint8_t * data, size_t count)
 
 int lep_i2c_open (char const * name)
 {
-	LEP_ASSERT_ACF (name != NULL, LEP_ERROR_NULL, "%s", "");
+	LEP_ASSERT_CF (name != NULL, LEP_ERROR_NULL, "%s", "");
 	int dev;
 	LEP_TRACE (LEP_INFO1, "open (%s, O_RDWR)", name);
 	LEP_BEGIN_SYSTEM_CALL;
 	dev = open (name, O_RDWR);
-	LEP_ASSERT_ACF (dev != -1, LEP_ERROR_I2C, "open%s", "")
+	LEP_ASSERT_CF (dev != -1, LEP_ERROR_I2C, "open%s", "")
 	if (dev == -1) {return LEP_ERROR_OPEN;}
 	int res;
 	LEP_TRACE (LEP_INFO1, "ioctl (%i, I2C_SLAVE, %x)", device, LEP_I2C_ADDRESS);
 	LEP_BEGIN_SYSTEM_CALL;
 	res = ioctl (dev, I2C_SLAVE, LEP_I2C_ADDRESS);
-	LEP_ASSERT_ACF (dev != -1, LEP_ERROR_I2C, "ioctl%s", "");
+	LEP_ASSERT_CF (dev != -1, LEP_ERROR_I2C, "ioctl%s", "");
 	if (res != 0) {return LEP_ERROR_I2C;}
 	return dev;
 }
@@ -384,7 +384,7 @@ int lep_i2c_pure_read (int device, uint16_t * data, size_t size8)
 	LEP_TRACE (LEP_INFO1, "read (%i, data, %i)", device, size8);
 	LEP_BEGIN_SYSTEM_CALL;
 	res = read (device, (void *) data, size8);
-	LEP_ASSERT_ACF (res == (int) size8, LEP_ERROR_I2C, "Device %i. read", device);
+	LEP_ASSERT_CF (res == (int) size8, LEP_ERROR_I2C, "Device %i. read", device);
 	if (res != (int) size8) {return LEP_ERROR_WRITE;}
 	lep_be16tohv (data, size8);
 	return res;
@@ -398,7 +398,7 @@ int lep_i2c_pure_write (int device, uint16_t * data, size_t size8)
 	LEP_TRACE (LEP_INFO1, "write (%i, data, %i)", device, size8);
 	LEP_BEGIN_SYSTEM_CALL;
 	res = write (device, (void *) data, size8);
-	LEP_ASSERT_ACF (res == (int) size8, LEP_ERROR_I2C, "Device %i. write", device);
+	LEP_ASSERT_CF (res == (int) size8, LEP_ERROR_I2C, "Device %i. write", device);
 	if (res != (int) size8) {return LEP_ERROR_WRITE;}
 	return res;
 }
@@ -407,7 +407,7 @@ int lep_i2c_pure_write (int device, uint16_t * data, size_t size8)
 int lep_i2c_read (int dev, uint16_t reg, void * data, size_t size8)
 {
 	int R;
-	LEP_ASSERT_ACF (size8 <= sizeof (uint16_t) * LEP_DATAREG_COUNT, LEP_ERROR_I2C, "%s", "");
+	LEP_ASSERT_CF (size8 <= sizeof (uint16_t) * LEP_DATAREG_COUNT, LEP_ERROR_I2C, "%s", "");
 	//Select start address to read from.
 	R = lep_i2c_pure_write (dev, &reg, sizeof (uint16_t));
 	//Read from that start address.
@@ -420,7 +420,7 @@ int lep_i2c_write (int dev, uint16_t reg, void * data, size_t size8)
 {
 	int R;
 	//The FLIR Lepton has limited amount of IO registers.
-	LEP_ASSERT_ACF (size8 <= sizeof (uint16_t) * LEP_DATAREG_COUNT, LEP_ERROR_I2C, "%s", "");
+	LEP_ASSERT_CF (size8 <= sizeof (uint16_t) * LEP_DATAREG_COUNT, LEP_ERROR_I2C, "%s", "");
 	//Writing data to address location must be done in a single write.
 	//Conatenate reg & data
 	uint16_t buffer [LEP_DATAREG_COUNT + 1];
@@ -503,11 +503,11 @@ int lep_openf (int oflags, char const * format, ...)
 	va_start (ap, format);
 	int len = vsnprintf (buf, sizeof (buf), format, ap);
 	va_end (ap);
-	LEP_ASSERT_ACF (len > 0, LEP_ERROR_ARG, "%s", "");
+	LEP_ASSERT_CF (len > 0, LEP_ERROR_ARG, "%s", "");
 	LEP_TRACE (LEP_INFO1, "open %s", buf);
 	LEP_BEGIN_SYSTEM_CALL;
 	fd = open (buf, oflags);
-	LEP_ASSERT_ACF (fd >= 0, LEP_ERROR_OPEN, "%s", buf);
+	LEP_ASSERT_CF (fd >= 0, LEP_ERROR_OPEN, "%s", buf);
 	return fd;
 }
 
@@ -521,11 +521,11 @@ int lep_writef (int fd, char const * format, ...)
 	va_start (ap, format);
 	len = vsnprintf (buf, sizeof (buf), format, ap);
 	va_end (ap);
-	LEP_ASSERT_ACF (len > 0, LEP_ERROR_ARG, "%s", "");
+	LEP_ASSERT_CF (len > 0, LEP_ERROR_ARG, "%s", "");
 	LEP_TRACE (LEP_INFO1, "%s", buf);
 	LEP_BEGIN_SYSTEM_CALL;
 	res = write (fd, buf, len);
-	LEP_ASSERT_ACF (res == len, LEP_ERROR_OPEN, "%s", buf);
+	LEP_ASSERT_CF (res == len, LEP_ERROR_OPEN, "%s", buf);
 	if (res != len) {return LEP_ERROR_WRITE;}
 	return LEP_SUCCESS;
 }
@@ -540,7 +540,7 @@ int lep_writef_nocheck (int fd, char const * format, ...)
 	va_start (ap, format);
 	len = vsnprintf (buf, sizeof (buf), format, ap);
 	printf ("%s\n", buf);
-	LEP_ASSERT_ACF (len > 0, LEP_ERROR_ARG, "%s", "");
+	LEP_ASSERT_CF (len > 0, LEP_ERROR_ARG, "%s", "");
 	LEP_BEGIN_SYSTEM_CALL;
 	res = write (fd, buf, len);
 	va_end (ap);

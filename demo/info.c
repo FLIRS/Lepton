@@ -1,7 +1,7 @@
-#define LEP_ASSERT_ACF(A,C,F,...) ASSERT_ACF(A,C,F,__VA_ARGS__)
+#define LEP_ASSERT_CF(A,C,F,...) ASSERT_CF(A,C,F,__VA_ARGS__)
 
 
-#include "assert_extended.h"
+#include "debug.h"
 #include "lep.h"
 #include "crc.h"
 
@@ -75,7 +75,6 @@ int app_print_gpio (int dev)
 
 int main (int argc, char * argv [])
 { 
-
 	int dev = lep_i2c_open (LEP_I2C_DEV_RPI3);
 	printf ("dev: %i\n", dev);
 
