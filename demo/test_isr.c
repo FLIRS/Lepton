@@ -2,9 +2,10 @@
 #define LEP_ASSERT_C ASSERT_C
 #define LEP_ASSERT_F ASSERT_F
 #define LEP_ASSERT_CF ASSERT_CF
-#define LEP_TRACE TRACE
-#define LEP_TRACE_C TRACE_C
-#define LEP_TRACE_CF TRACE_CF
+
+//#define LEP_TRACE TRACE
+//#define LEP_TRACE_F TRACE_F
+//#define LEP_TRACE_CF TRACE_CF
 
 #include "debug.h"
 #include "lep.h"
@@ -50,9 +51,8 @@ int main (int argc, char * argv [])
 	int pinfd;
 	
 	pinfd = lep_isr_init (17);
-	printf ("pinfd %i\n", pinfd);
 	efd = epoll_create1 (0);
-	ASSERT_F (efd > 0, "%s", "");
+	ASSERT (efd > 0);
 	
 	app_epoll_add (efd, EPOLLIN | EPOLLPRI | EPOLLET, pinfd);
 	
@@ -60,14 +60,14 @@ int main (int argc, char * argv [])
 	{
 		printf ("waiting for events...\n");
 		int n = epoll_wait (efd, events, 10, -1);
-		ASSERT_F (n > 0, "%s", "");
+		ASSERT (n > 0);
 		printf ("new events %i!\n", n);
 		for (int i = 0; i < n; i = i + 1)
 		{
-			char buf [10];
-			int res = read (pinfd, buf, sizeof (buf));
-			lseek (pinfd, 0, SEEK_SET);
-			printf ("event res %i\n", res);
+			if (events [i].data.fd == pinfd)
+			{
+				app_epoll_handle_gpio (pinfd);
+			}
 		}
 	}
 	

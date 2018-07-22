@@ -436,7 +436,7 @@ int lep_spi_receive (int device, uint8_t * data, size_t count)
 	memset ((void *) data, 0, count);
 	
 	//ioctl SPI_IOC_MESSAGE returns the number of elements transfered.
-	LEP_TRACE_F ("SPI_IOC_MESSAGE%s", "");
+	//LEP_TRACE_F ("SPI_IOC_MESSAGE%s", "");
 	LEP_BEGIN_SYSTEM_CALL;
 	int R = ioctl (device, SPI_IOC_MESSAGE (1), &transfer);
 	LEP_ASSERT_CF (R == (int) count, LEP_ERROR_SPI, "filedescriptor %i. ioctl SPI_IOC_MESSAGE", device);
@@ -455,7 +455,7 @@ int lep_i2c_open (char const * name)
 	LEP_ASSERT_CF (dev != -1, LEP_ERROR_I2C, "open%s", "")
 	if (dev == -1) {return LEP_ERROR_OPEN;}
 	int res;
-	LEP_TRACE_F ("ioctl (%i, I2C_SLAVE, %x)", device, LEP_I2C_ADDRESS);
+	LEP_TRACE_F ("ioctl (%i, I2C_SLAVE, %x)", dev, LEP_I2C_ADDRESS);
 	LEP_BEGIN_SYSTEM_CALL;
 	res = ioctl (dev, I2C_SLAVE, LEP_I2C_ADDRESS);
 	LEP_ASSERT_CF (dev != -1, LEP_ERROR_I2C, "ioctl%s", "");

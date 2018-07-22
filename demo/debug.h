@@ -19,8 +19,8 @@
 #define ASSERT_C(A, C)          if (!(A)) {assert_format (__COUNTER__, __RELATIVE_FILE__, __LINE__, __func__, #A, (C),   #C, NULL                );}
 #define ASSERT_CF(A, C, F, ...) if (!(A)) {assert_format (__COUNTER__, __RELATIVE_FILE__, __LINE__, __func__, #A, (C),   #C,  (F), ## __VA_ARGS__);}
 
-#define TRACE(F)         trace_format (__COUNTER__, __RELATIVE_FILE__, __LINE__, __func__, (0), NULL, NULL                )
-#define TRACE_F(F, ...)  trace_format (__COUNTER__, __RELATIVE_FILE__, __LINE__, __func__, (0), NULL,  (F), ## __VA_ARGS__)
+#define TRACE(F)            trace_format (__COUNTER__, __RELATIVE_FILE__, __LINE__, __func__, (0), NULL, NULL                )
+#define TRACE_F(F, ...)     trace_format (__COUNTER__, __RELATIVE_FILE__, __LINE__, __func__, (0), NULL,  (F), ## __VA_ARGS__)
 #define TRACE_CF(C, F, ...) trace_format (__COUNTER__, __RELATIVE_FILE__, __LINE__, __func__, (C),   #C,  (F), ## __VA_ARGS__)
 
 

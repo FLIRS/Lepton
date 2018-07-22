@@ -2,9 +2,10 @@
 #define LEP_ASSERT_C ASSERT_C
 #define LEP_ASSERT_F ASSERT_F
 #define LEP_ASSERT_CF ASSERT_CF
-#define LEP_TRACE TRACE
-#define LEP_TRACE_C TRACE_C
-#define LEP_TRACE_CF TRACE_CF
+
+//#define LEP_TRACE TRACE
+//#define LEP_TRACE_F TRACE_F
+//#define LEP_TRACE_CF TRACE_CF
 
 
 #include "debug.h"
@@ -147,8 +148,6 @@ int app_print_vsync_delay (int dev)
 int main (int argc, char * argv [])
 { 
 	int dev = lep_i2c_open (LEP_I2C_DEV_RPI3);
-	printf ("dev: %i\n", dev);
-
 	
 	while (1)
 	{
