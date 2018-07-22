@@ -1,4 +1,10 @@
-#define LEP_ASSERT_CF(A,C,F,...) ASSERT_CF(A,C,F,__VA_ARGS__)
+#define LEP_ASSERT ASSERT
+#define LEP_ASSERT_C ASSERT_C
+#define LEP_ASSERT_F ASSERT_F
+#define LEP_ASSERT_CF ASSERT_CF
+#define LEP_TRACE TRACE
+#define LEP_TRACE_C TRACE_C
+#define LEP_TRACE_CF TRACE_CF
 
 
 #include "debug.h"
