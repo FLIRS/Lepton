@@ -31,42 +31,14 @@
 //wiringPiSetup
 #include <wiringPi.h>
 
-int dev;
-int app_error_frames = 0;
+int dev_spi;
+int dev_i2c;
+int gaurd_counter = 0;
 	
-void app_read_packet ()
+void wpi_isr ()
 {
-	struct Lep_Packet pack [LEP2_HEIGHT];
-	lep_spi_receive (dev, (uint8_t *) pack, sizeof (pack));
-	
-	//Sync frames
-	//if (!lep_check (pack)) 
-	if ((pack [0].reserved & 0x0F) == 0x0F)
-	{
-		//TODO: wtf is this a good solution?.
-		usleep (200000);
-		app_error_frames ++; 
-		printf ("e : %04i\n", app_error_frames);
-		return;
-	}
-	app_error_frames = 0;
-	
-	//Sync segements
-	if (lep_check (pack + 20) && (pack [20].number != 20)) 
-	{
-		lep_spi_receive (dev, (uint8_t *) pack, LEP_PACKET_SIZE); 
-		return;
-	}
-	
-	
-	for (size_t i = 0; i < LEP2_HEIGHT; i = i + 1)
-	{
-		//printf ("%02i : ", i);
-		//app_print_byte_str ((uint8_t *)(pack + i), 10);
-		//printf ("\n");
-		printf ("%i ", pack [i].number);
-	}
-	printf ("\n");
+	int r = app_debug_stream (dev_spi);
+	if (r >= 0) {gaurd_counter = 0;}
 }
 
 
@@ -79,7 +51,7 @@ void setup_wiringPi ()
    piHiPri (99);
    int Pin = 0;
    int Edge = INT_EDGE_RISING;
-   wiringPiISR (Pin, Edge, &app_read_packet);
+   wiringPiISR (Pin, Edge, &wpi_isr);
 }
 
 
@@ -98,12 +70,19 @@ int main (int argc, char * argv [])
 		}
 	}
 	
-	dev = lep_spi_open (LEP_SPI_DEV_RPI3);
+	dev_spi = lep_spi_open (LEP_SPI_DEV_RPI3);
+	dev_i2c = lep_i2c_open (LEP_I2C_DEV_RPI3);
+	
 	setup_wiringPi ();
 	
 	while (1)
 	{
 		sleep (1);
+		if (gaurd_counter >= 3)
+		{
+			app_reboot (dev_i2c);
+		}
+		gaurd_counter ++;
 	}
 	
 	

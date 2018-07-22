@@ -27,9 +27,6 @@
 
 
 
-
-
-
 int main (int argc, char * argv [])
 {
 	int C = 1;
@@ -42,7 +39,6 @@ int main (int argc, char * argv [])
 			break;
 		}
 	}
-	
 	
 	int efd;
 	struct epoll_event events [10];

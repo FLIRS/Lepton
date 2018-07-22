@@ -74,6 +74,9 @@ enum Lep_Result
 //Payload size it the size of the data in each packets.
 #define LEP_PAYLOAD_SIZE 160
 
+//Segment size it the size of a entire frame.
+#define LEP_SEGMENT_SIZE (LEP_PACKET_SIZE * LEP2_HEIGHT)
+
 //TODO: Is there a reason for using 8 bit per word?
 #define LEP_SPI_BITS_PER_WORD 8
 
@@ -153,16 +156,26 @@ enum Lep_Status
 //IDs assigned to attributes and/or methods of that module.	
 enum Lep_Comid
 {
-	//4.4.12 SYS Ping Camera
-	//This function sends the ping command to the camera. The camera will respond with LEP_OK if command received
-	//correctly.
-	LEP_COMID_PING = 0x0200,
-	//Page 17.
-	LEP_COMID_UPTIME  = 0x020C,
-	LEP_COMID_AUXTEMP = 0x0210,
-	LEP_COMID_FPATEMP = 0x0214,
-	LEP_COMID_REBOOT  = 0x4842,
-	LEP_COMID_GPIO    = 0x4854
+//4.4.12 SYS Ping Camera
+//This function sends the ping command to the camera. The camera will respond with LEP_OK if command received
+//correctly.
+LEP_COMID_PING           = 0x0200,
+//Page 17.
+LEP_COMID_UPTIME         = 0x020C,
+LEP_COMID_AUXTEMP        = 0x0210,
+LEP_COMID_FPATEMP        = 0x0214,
+LEP_COMID_REBOOT         = 0x4842,
+
+//4.6.15 OEM GPIO Mode Select
+//This function gets and sets the GPIO pins mode.
+LEP_COMID_GPIO           = 0x4854,
+
+//4.6.16 OEM GPIO VSync Phase Delay
+//This function gets and sets the GPIO VSync phase delay. The Lepton Camera can issue a pulse on GPIO3 when
+//there is an inter VSync. The output pulse may be issued in phase with the camera’s internal VSync, or it may be
+//issued earlier or later. This command controls this phase relationship. The delays are in line periods,
+//approximately 0.5 milliseconds per period. The phase delay is limited to +/- 3 line periods.
+LEP_COMID_VSYNC_DELAY    = 0x4858
 };
 
 
@@ -191,6 +204,24 @@ enum Lep_GPIO
 	LEP_GPIO_SPI_SLAVE_VLB_DATA = 4,
 	LEP_GPIO_VSYNC = 5
 };
+
+
+//4.6.16 OEM GPIO VSync Phase Delay
+//This function gets and sets the GPIO VSync phase delay. The Lepton Camera can issue a pulse on GPIO3 when
+//there is an inter VSync. The output pulse may be issued in phase with the camera’s internal VSync, or it may be
+//issued earlier or later. This command controls this phase relationship. The delays are in line periods,
+//approximately 0.5 milliseconds per period. The phase delay is limited to +/- 3 line periods.
+enum Lep_Vsync_Delay
+{
+	LEP_VSYNC_DELAY_MINUS3 = -3,
+	LEP_VSYNC_DELAY_MINUS2 = -2,
+	LEP_VSYNC_DELAY_MINUS1 = -1,
+	LEP_VSYNC_DELAY_NONE = 0,
+	LEP_VSYNC_DELAY_PLUS1 = 1,
+	LEP_VSYNC_DELAY_PLUS2 = 2,
+	LEP_VSYNC_DELAY_PLUS3 = 3
+};
+
 
 
 //  FLIR Lepton Datasheet Page 31.
@@ -224,6 +255,13 @@ struct __attribute__((__packed__)) Lep_Packet
 	};
 };
 
+
+void lep_init ()
+{
+	struct Lep_Packet pack [LEP2_HEIGHT];
+	ASSERT (sizeof (pack [0]) == LEP_PACKET_SIZE);
+	ASSERT (sizeof (pack) == LEP_PACKET_SIZE * LEP2_HEIGHT);
+}
 
 //Return false when CRC mismatch
 //Return true when CRC match

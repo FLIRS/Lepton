@@ -4,6 +4,7 @@
 #include "debug.h"
 #include "lep.h"
 #include "crc.h"
+#include "tcol.h"
 
 
 //printf
@@ -21,6 +22,9 @@
 //errrno
 #include <errno.h>
 
+//intmax_t strtoimax(const char *nptr, char **endptr, int base);
+#include <inttypes.h>
+
 
 int app_print_temp (int dev)
 {
@@ -37,19 +41,29 @@ int app_print_temp (int dev)
 }
 
 
-int app_print_status (int dev)
+uint16_t app_status (int dev)
 {
 	uint16_t status = 0;
-	int16_t error;
-	int R;
-	R = lep_i2c_read1 (dev, LEP_REG_STATUS, &status);
-	error = (status >> 8) | 0xFF00; //No error = -256????
-	printf ("%30s : %i\n", "Status", (int)status);
-	printf ("%30s : %i\n", "Error", (int)error);
-	printf ("%30s : %i\n", "LEP_STATUS_BUSY", (int)!!(status & LEP_STATUS_BUSY));
-	printf ("%30s : %i\n", "LEP_STATUS_BOOTMODE", (int)!!(status & LEP_STATUS_BOOTMODE));
-	printf ("%30s : %i\n", "LEP_STATUS_BOOTSTATUS", (int)!!(status & LEP_STATUS_BOOTSTATUS));
-	return R;
+	lep_i2c_read1 (dev, LEP_REG_STATUS, &status);
+	return status;
+}
+
+
+void app_print_status (uint16_t status)
+{
+	//TODO: Should error be 8 bit?
+	int8_t error;
+	//error = (status >> 8) | 0xFF00;
+	error = status >> 8;
+	char * ci = TCOL (TCOL_BOLD, TCOL_YELLOW, TCOL_DEFAULT);
+	char * ce = NULL;
+	if (error < 0) {ce = TCOL (TCOL_BOLD, TCOL_RED, TCOL_DEFAULT);}
+	else {ce = TCOL (TCOL_BOLD, TCOL_GREEN, TCOL_DEFAULT);}
+	printf ("%s%30s%s : %i\n", ci, "Status", TCOL_RESET, (int)status);
+	printf ("%s%30s%s : %s%i\n", ci, "status >> 8 = Error", TCOL_RESET, ce, (int)error);
+	printf ("%s%30s%s : %i\n", ci, "LEP_STATUS_BUSY", TCOL_RESET, (int)!!(status & LEP_STATUS_BUSY));
+	printf ("%s%30s%s : %i\n", ci, "LEP_STATUS_BOOTMODE", TCOL_RESET, (int)!!(status & LEP_STATUS_BOOTMODE));
+	printf ("%s%30s%s : %i\n", ci, "LEP_STATUS_BOOTSTATUS", TCOL_RESET, (int)!!(status & LEP_STATUS_BOOTSTATUS));
 }
 
 
@@ -58,6 +72,31 @@ int app_set_gpio (int dev, uint16_t mode)
 	uint16_t status = 0;
 	int res;
 	res = lep_i2c_com (dev, LEP_COMID_GPIO | LEP_COMTYPE_SET, &mode, sizeof (uint16_t), &status);
+	app_print_status (status);
+	return res;
+}
+
+
+int app_set_vsync_delay (int dev, int32_t d)
+{
+	uint16_t status = 0;
+	int res;
+	res = lep_i2c_com (dev, LEP_COMID_VSYNC_DELAY | LEP_COMTYPE_SET, &d, sizeof (d), &status);
+	app_print_status (status);
+	return res;
+}
+
+
+int app_set_vsync_delay_str (int dev, char const * d)
+{
+	intmax_t j;
+	int res = 0;
+	char * endptr;
+	j = strtoimax (d, &endptr, 10);
+	//if (-3 <= j && j <= 3)
+	{
+		res = app_set_vsync_delay (dev, j);
+	}
 	return res;
 }
 
@@ -79,10 +118,23 @@ int app_print_gpio (int dev)
 	uint16_t status = 0;
 	uint16_t mode = 0;
 	int res;
-	res = lep_i2c_com (dev, LEP_COMID_GPIO | LEP_COMTYPE_GET, &mode, sizeof (uint16_t), &status);
+	res = lep_i2c_com (dev, LEP_COMID_GPIO | LEP_COMTYPE_GET, &mode, sizeof (mode), &status);
 	printf ("%30s : %i\n", "LEP_COMID_GPIO", (int) mode);
 	return res;
 }
+
+
+int app_print_vsync_delay (int dev)
+{
+	uint16_t status = 0;
+	int32_t d = 0;
+	int res;
+	res = lep_i2c_com (dev, LEP_COMID_VSYNC_DELAY | LEP_COMTYPE_GET, &d, sizeof (d), &status);
+	printf ("%30s : %i\n", "LEP_COMID_VSYNC_DELAY", (int) d);
+	return res;
+}
+
+
 
 
 
@@ -91,10 +143,12 @@ int main (int argc, char * argv [])
 	int dev = lep_i2c_open (LEP_I2C_DEV_RPI3);
 	printf ("dev: %i\n", dev);
 
-	int C = 1;
-	while (C != -1)
+	
+	while (1)
 	{
-		C = getopt (argc, argv, "strv:");
+		int C = getopt (argc, argv, "strd:v:");
+		printf ("%s", "----------------------------------------------------\n");
+		if (C == -1) {break;}
 		switch (C)
 		{
 			case '?':
@@ -102,22 +156,30 @@ int main (int argc, char * argv [])
 			break;
 			
 			case 's':
-			app_print_status (dev);
+			app_print_status (app_status (dev));
 			break;
 			
 			case 'v':
-			if (optarg && optarg [0] == '1')
+			if (optarg == NULL) {break;}
+			if (optarg [0] == '1')
 			{
 				app_print_gpio (dev);
 				app_set_gpio (dev, LEP_GPIO_VSYNC);
 				app_print_gpio (dev);
 			}
-			if (optarg && optarg [0] == '0')
+			if (optarg [0] == '0')
 			{
 				app_print_gpio (dev);
 				app_set_gpio (dev, LEP_GPIO_MODE);
 				app_print_gpio (dev);
 			}
+			break;
+			
+			case 'd':
+			if (optarg == NULL) {break;}
+			app_print_vsync_delay (dev);
+			app_set_vsync_delay_str (dev, optarg);
+			app_print_vsync_delay (dev);
 			break;
 			
 			case 't':

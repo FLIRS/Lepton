@@ -7,12 +7,13 @@ project Build is
 	
 	Main_Files :=
 	(
-		"fps.c",
+		"test_grab_sys.c",
+		"test_grab_wpi.c",
+		"test_fps.c",
+		"test_isr.c",
 		"info.c",
-		"grab.c",
-		"grab_debug.c",
-		"isr.c",
-		"wpi.c",
+		"grab_sys.c",
+		"grab_wpi.c",
 		"default.c"
 	);
 	
@@ -45,7 +46,8 @@ project Build is
 	
 	
 	package Linker is
-		for Switches ("wpi.c") use ("-lwiringPi");
+		for Switches ("test_grab_wpi.c") use ("-lwiringPi");
+		for Switches ("grab_wpi.c") use ("-lwiringPi");
 	end Linker;
 	
 end Build;
