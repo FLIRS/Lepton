@@ -706,5 +706,37 @@ int lep_isr_quit (int pin, int fd)
 }
 
 
+//Copy and convert the <Packet> video line to a portion of the <Pixmap> 
+//depending on which row <Packet> are.
+void lep_convert_pixmap 
+(
+   struct Lep_Packet * pack, 
+   uint16_t * pixmap,
+   uint8_t segment
+)
+{
+	//Segment_Number must be inside 0 .. 3
+	//ASSERT (segment >= 0);
+	ASSERT (segment <= 3);
+	ASSERT (pack->number >= 0);
+	ASSERT (pack->number < LEP2_HEIGHT);
+
+	//Pixels values are 16b big endian.
+	//Convert pixel values to host byte order.
+	//Lepton_Packet_To_Host (Packet);
+
+	for (size_t i = 0; i < LEP2_WIDTH; i = i + 1)
+	{
+		pack->line [i] = be16toh (pack->line [i]);
+	}
+
+	//Assign video line to correct position in the pixmap.
+	memcpy 
+	(
+		pixmap + (segment * LEP2_HEIGHT * LEP2_WIDTH + LEP2_WIDTH * pack->number), 
+		pack->payload, 
+		LEP_PAYLOAD_SIZE
+	);
+}
 
 

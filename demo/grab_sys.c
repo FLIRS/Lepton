@@ -88,7 +88,7 @@ int main (int argc, char * argv [])
 		{
 			if (events [i].data.fd == pinfd)
 			{
-				int r = app_debug_stream (dev_spi);
+				int r = app_write_stream (dev_spi);
 				if (r >= 0) {gaurd_counter = 0;}
 				app_epoll_handle_gpio (pinfd);
 				vsync_counter ++;

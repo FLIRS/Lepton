@@ -124,6 +124,27 @@ int app_debug_stream (int dev)
 }
 
 
+int app_write_stream (int dev)
+{
+	uint16_t pixmap [LEP3_WIDTH * LEP3_HEIGHT];
+	struct Lep_Packet pack [LEP2_HEIGHT];
+	
+	int seg = app_read_stream (dev, pack);
+	if (seg < 0) {return -1;}
+	if (seg < 1) {return 0;}
+	
+	for (size_t i = 0; i < LEP2_HEIGHT; i = i + 1)
+	{
+		lep_convert_pixmap (pack + i, pixmap, seg - 1); 
+	}
+	if (seg != 4) {return 0;}
+	
+	int l = write (STDOUT_FILENO, pixmap, sizeof (pixmap));
+	ASSERT (l == sizeof (pixmap));
+	return 0;
+}
+
+
 void app_epoll_handle_gpio (int fd)
 {
 	lseek (fd, 0, SEEK_SET);
