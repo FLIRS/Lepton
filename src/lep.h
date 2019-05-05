@@ -443,87 +443,91 @@ int lep_spi_receive (int device, uint8_t * data, size_t count)
 int lep_i2c_open (char const * name)
 {
 	LEP_ASSERT_CF (name != NULL, LEP_ERROR_NULL, "%s", "");
-	int dev;
-	LEP_TRACE_F ("open (%s, O_RDWR)", name);
+	int fd;
 	LEP_BEGIN_SYSTEM_CALL;
-	dev = open (name, O_RDWR);
-	LEP_ASSERT_CF (dev != -1, LEP_ERROR_I2C, "open%s", "")
-	if (dev == -1) {return LEP_ERROR_OPEN;}
-	int res;
-	LEP_TRACE_F ("ioctl (%i, I2C_SLAVE, %x)", dev, LEP_I2C_ADDRESS);
+	fd = open (name, O_RDWR);
+	LEP_TRACE_F ("open (%s, O_RDWR) : %i", name, fd);
+	LEP_ASSERT_CF (fd != -1, LEP_ERROR_I2C, "open%s", "")
+	if (fd == -1) {return LEP_ERROR_OPEN;}
+	int r;
 	LEP_BEGIN_SYSTEM_CALL;
-	res = ioctl (dev, I2C_SLAVE, LEP_I2C_ADDRESS);
-	LEP_ASSERT_CF (dev != -1, LEP_ERROR_I2C, "ioctl%s", "");
-	if (res != 0) {return LEP_ERROR_I2C;}
-	return dev;
+	r = ioctl (fd, I2C_SLAVE, LEP_I2C_ADDRESS);
+	LEP_TRACE_F ("ioctl (%i, I2C_SLAVE, %x) : %i", fd, LEP_I2C_ADDRESS, r);
+	LEP_ASSERT_CF (fd != -1, LEP_ERROR_I2C, "ioctl%s", "");
+	if (r != 0) {return LEP_ERROR_I2C;}
+	return fd;
 }
 
 
-void lep_htobe16v (uint16_t * data, size_t size8)
+void lep_htobe16v (uint16_t data [], size_t n)
 {
-	for (size_t I = 0; I < (size8 / 2); I = I + 1)
+	while (n--)
 	{
-		data [I] = htobe16 (data [I]);
+		data [n] = htobe16 (data [n]);
 	}
 }
 
 
-void lep_be16tohv (uint16_t * data, size_t size8)
+void lep_be16tohv (uint16_t data [], size_t n)
 {
-	for (size_t I = 0; I < (size8 / 2); I = I + 1)
+	while (n--)
 	{
-		data [I] = be16toh (data [I]);
+		data [n] = be16toh (data [n]);
 	}
 }
 
 
 //Pure read does not know which register it reads from.
 //Handles endianess.
-int lep_i2c_pure_read (int device, uint16_t * data, size_t size8)
+int lep_i2c_read16 (int fd, uint16_t * data, size_t n)
 {
-	int res;
-	LEP_TRACE_F ("read (%i, data, %i)", device, size8);
+	int r;
+	size_t const size8 = n * sizeof (uint16_t);
 	LEP_BEGIN_SYSTEM_CALL;
-	res = read (device, (void *) data, size8);
-	LEP_ASSERT_CF (res == (int) size8, LEP_ERROR_I2C, "Device %i. read", device);
-	if (res != (int) size8) {return LEP_ERROR_WRITE;}
-	lep_be16tohv (data, size8);
-	return res;
+	r = read (fd, (void *) data, size8);
+	LEP_TRACE_F ("read (%i, data, %i) : %i", fd, size8, r);
+	LEP_ASSERT_CF (r == (int) size8, LEP_ERROR_I2C, "Reading from fd %i failed", fd);
+	if (r != (int) size8) {return LEP_ERROR_WRITE;}
+	lep_be16tohv (data, n);
+	return r;
 }
 
 
 //Pure write does not know which register it writes to.
 //Handles endianess.
-int lep_i2c_pure_write (int device, uint16_t * data, size_t size8)
+int lep_i2c_write16 (int fd, uint16_t * data, size_t n)
 {
-	int res;
-	lep_htobe16v (data, size8);
-	LEP_TRACE_F ("write (%i, data, %i)", device, size8);
+	int r;
+	size_t const size8 = n * sizeof (uint16_t);
+	lep_htobe16v (data, n);
 	LEP_BEGIN_SYSTEM_CALL;
-	res = write (device, (void *) data, size8);
-	LEP_ASSERT_CF (res == (int) size8, LEP_ERROR_I2C, "Device %i. write", device);
-	if (res != (int) size8) {return LEP_ERROR_WRITE;}
-	return res;
+	r = write (fd, (void *) data, size8);
+	LEP_TRACE_F ("write (%i, data, %i) : %i", fd, size8, r);
+	LEP_ASSERT_CF (r == (int) size8, LEP_ERROR_I2C, "Writing to fd %i feailed", fd);
+	if (r != (int) size8) {return LEP_ERROR_WRITE;}
+	return r;
 }
 
 
 //Read data from a selected register.
-int lep_i2c_read (int dev, uint16_t reg, void * data, size_t size8)
+int lep_i2c_regread (int fd, uint16_t reg, void * data, size_t size8)
 {
-	int R;
+	int r;
+	size_t const n = size8 / sizeof (uint16_t);
 	LEP_ASSERT_CF (size8 <= sizeof (uint16_t) * LEP_DATAREG_COUNT, LEP_ERROR_I2C, "%s", "");
 	//Select start address to read from.
-	R = lep_i2c_pure_write (dev, &reg, sizeof (uint16_t));
+	r = lep_i2c_write16 (fd, &reg, 1);
 	//Read from that start address.
-	R = lep_i2c_pure_read (dev, data, size8);
-	return R;
+	r = lep_i2c_read16 (fd, data, n);
+	return r;
 }
 
 
 //Write data to a selected register.
-int lep_i2c_write (int dev, uint16_t reg, void * data, size_t size8)
+int lep_i2c_regwrite (int fd, uint16_t reg, void * data, size_t size8)
 {
-	int R;
+	int r;
+	size_t const n = size8 / sizeof (uint16_t);
 	//The FLIR Lepton has limited amount of IO registers.
 	LEP_ASSERT_CF (size8 <= sizeof (uint16_t) * LEP_DATAREG_COUNT, LEP_ERROR_I2C, "%s", "");
 	//Writing data to address location must be done in a single write.
@@ -533,67 +537,67 @@ int lep_i2c_write (int dev, uint16_t reg, void * data, size_t size8)
 	buffer [0] = reg;
 	//Write from that start address.
 	memcpy (buffer + 1, data, size8);
-	R = lep_i2c_pure_write (dev, buffer, size8 + sizeof (uint16_t));
-	return R;
+	r = lep_i2c_write16 (fd, buffer, n + 1);
+	return r;
 }
 
 
 //Same as (lep_i2c_read) but reads just one word.
-int lep_i2c_read1 (int dev, uint16_t reg, uint16_t * data)
+int lep_i2c_read1 (int fd, uint16_t reg, uint16_t * data)
 {
-	return lep_i2c_read (dev, reg, data, sizeof (uint16_t));
+	return lep_i2c_regread (fd, reg, data, sizeof (uint16_t));
 }
 
 
 //Same as (lep_i2c_write) but writes just one word.
-int lep_i2c_write1 (int dev, uint16_t reg, uint16_t data)
+int lep_i2c_write1 (int fd, uint16_t reg, uint16_t data)
 {
-	return lep_i2c_write (dev, reg, &data, sizeof (uint16_t));
+	return lep_i2c_regwrite (fd, reg, &data, sizeof (uint16_t));
 }
 
 
-int lep_i2c_com (int dev, uint16_t comid, void * data, size_t size8, uint16_t * status)
+int lep_i2c_com (int fd, uint16_t comid, void * data, size_t size8, uint16_t * status)
 {
-	int R;
-	R = lep_i2c_read1 (dev, LEP_REG_STATUS, status);
-	if (R < 0) {return R;}
+	int r;
+	r = lep_i2c_read1 (fd, LEP_REG_STATUS, status);
+	if (r < 0) {return r;}
 	if (*status & LEP_STATUS_BUSY) {return -2;};
 	if (!(*status & LEP_STATUS_BOOTMODE)) {return -2;};
 	if (!(*status & LEP_STATUS_BOOTSTATUS)) {return -2;};
 	//Set the data length register for setting or getting values.
-	R = lep_i2c_write1 (dev, LEP_REG_LENGTH, (uint16_t)(size8 / 2));
-	if (R < 0) {return R;}
+	r = lep_i2c_write1 (fd, LEP_REG_LENGTH, (uint16_t)(size8 / 2));
+	if (r < 0) {return r;}
 	
 	switch (comid & LEP_COMTYPE_MASK)
 	{
 		//Get a module property or attribute value
 		case LEP_COMTYPE_GET:
-		R = lep_i2c_write1 (dev, LEP_REG_COMMAND, comid);
-		if (R < 0) {return R;}
-		R = lep_i2c_read1 (dev, LEP_REG_STATUS, status);
-		if (R < 0) {return R;}
+		r = lep_i2c_write1 (fd, LEP_REG_COMMAND, comid);
+		if (r < 0) {return r;}
+		r = lep_i2c_read1 (fd, LEP_REG_STATUS, status);
+		if (r < 0) {return r;}
 		if (*status != LEP_STATUS_OK) {return -3;};
-		R = lep_i2c_read (dev, LEP_REG_DATA0, data, size8);
+		r = lep_i2c_regread (fd, LEP_REG_DATA0, data, size8);
 		break;
 		
 		//Set a module property or attribute value
 		case LEP_COMTYPE_SET:
-		R = lep_i2c_write (dev, LEP_REG_DATA0, data, size8);
-		if (R < 0) {return R;}
-		R = lep_i2c_write1 (dev, LEP_REG_COMMAND, comid);
-		if (R < 0) {return R;}
-		R = lep_i2c_read1 (dev, LEP_REG_STATUS, status);
-		if (R < 0) {return R;}
+		r = lep_i2c_regwrite (fd, LEP_REG_DATA0, data, size8);
+		if (r < 0) {return r;}
+		r = lep_i2c_write1 (fd, LEP_REG_COMMAND, comid);
+		if (r < 0) {return r;}
+		r = lep_i2c_read1 (fd, LEP_REG_STATUS, status);
+		if (r < 0) {return r;}
 		if (*status != LEP_STATUS_OK) {return -4;};
 		break;
 		
 		//Run – execute a camera operation exposed by that module
 		case LEP_COMTYPE_RUN:
-		R = lep_i2c_write1 (dev, LEP_REG_COMMAND, comid);
-		if (R < 0) {return R;}
+		r = lep_i2c_write1 (fd, LEP_REG_COMMAND, comid);
+		if (r < 0) {return r;}
 		if (comid & LEP_COMID_REBOOT) {break;}
-		R = lep_i2c_read1 (dev, LEP_REG_STATUS, status);
-		if (R < 0) {return R;}
+		r = lep_i2c_read1 (fd, LEP_REG_STATUS, status);
+		if (r < 0) {return r;}
 		if (*status != LEP_STATUS_OK) {return -5;};
 		break;
 		
@@ -601,7 +605,7 @@ int lep_i2c_com (int dev, uint16_t comid, void * data, size_t size8, uint16_t * 
 		LEP_ASSERT (0);
 		break;
 	}
-	return R;
+	return r;
 }
 
 
@@ -626,7 +630,7 @@ int lep_writef (int fd, char const * format, ...)
 {
 	char buf [100];
 	int len;
-	int res;
+	int r;
 	va_list ap;
 	va_start (ap, format);
 	len = vsnprintf (buf, sizeof (buf), format, ap);
@@ -634,9 +638,9 @@ int lep_writef (int fd, char const * format, ...)
 	LEP_ASSERT_CF (len > 0, LEP_ERROR_ARG, "%s", "");
 	LEP_TRACE_F ("%s", buf);
 	LEP_BEGIN_SYSTEM_CALL;
-	res = write (fd, buf, (size_t)len);
-	LEP_ASSERT_CF (res == len, LEP_ERROR_OPEN, "%s", buf);
-	if (res != len) {return LEP_ERROR_WRITE;}
+	r = write (fd, buf, (size_t)len);
+	LEP_ASSERT_CF (r == len, LEP_ERROR_OPEN, "%s", buf);
+	if (r != len) {return LEP_ERROR_WRITE;}
 	return LEP_SUCCESS;
 }
 
@@ -645,42 +649,42 @@ int lep_writef_nocheck (int fd, char const * format, ...)
 {
 	char buf [100];
 	int len;
-	int res;
+	int r;
 	va_list ap;
 	va_start (ap, format);
 	len = vsnprintf (buf, sizeof (buf), format, ap);
 	printf ("%s\n", buf);
 	LEP_ASSERT_CF (len > 0, LEP_ERROR_ARG, "%s", "");
 	LEP_BEGIN_SYSTEM_CALL;
-	res = write (fd, buf, (size_t)len);
+	r = write (fd, buf, (size_t)len);
 	va_end (ap);
-	if (res != len) {return LEP_ERROR_WRITE;}
-	return res;
+	if (r != len) {return LEP_ERROR_WRITE;}
+	return r;
 }
 
 
-int lep_isr_init (int pin)
+int lep_create_gpiofd (int pin)
 {
 	int fd;
-	int res;
+	int r;
 	//TODO: unexport, is this preferable?
 	fd = lep_openf (O_WRONLY, "/sys/class/gpio/%s", "unexport");
-	res = lep_writef_nocheck (fd, "%i", pin);
+	r = lep_writef_nocheck (fd, "%i", pin);
 	close (fd);
 	//Enable the gpio pin.
 	fd = lep_openf (O_WRONLY, "/sys/class/gpio/%s", "export");
-	res = lep_writef (fd, "%i", pin);
-	if (res < 0) {return res;}
+	r = lep_writef (fd, "%i", pin);
+	if (r < 0) {return r;}
 	close (fd);
 	//Set the gpio pin to input
 	fd = lep_openf (O_WRONLY, "/sys/class/gpio/gpio%i/direction", pin);
-	res = lep_writef (fd, "%s", "in");
-	if (res < 0) {return res;}
+	r = lep_writef (fd, "%s", "in");
+	if (r < 0) {return r;}
 	close (fd);
 	//Set the gpio pin to trigger at rising edge.
 	fd = lep_openf (O_WRONLY, "/sys/class/gpio/gpio%i/edge", pin);
-	res = lep_writef (fd, "%s", "rising");
-	if (res < 0) {return res;}
+	r = lep_writef (fd, "%s", "rising");
+	if (r < 0) {return r;}
 	close (fd);
 	//Get the fd from the gpio pin.
 	fd = lep_openf (O_RDONLY, "/sys/class/gpio/gpio%i/value", pin);
@@ -694,13 +698,13 @@ int lep_isr_init (int pin)
 //TODO: how to implement isr using one int?
 int lep_isr_quit (int pin, int fd)
 {
-	int res;
+	int r;
 	close (fd);
 	fd = lep_openf (O_WRONLY, "/sys/class/gpio/%s", "unexport");
 	if (fd < 0) {return fd;}
-	res = lep_writef (fd, "%i", pin);
+	r = lep_writef (fd, "%i", pin);
 	close (fd);
-	if (res < 0) {return res;}
+	if (r < 0) {return r;}
 	return 0;
 }
 
@@ -708,11 +712,7 @@ int lep_isr_quit (int pin, int fd)
 //Copy and convert the <Packet> video line to a portion of the <Pixmap> 
 //depending on which row <Packet> are.
 void lep_convert_pixmap 
-(
-   struct lep_packet * pack, 
-   uint16_t * pixmap,
-   uint8_t segment
-)
+(struct lep_packet * pack, uint16_t * pixmap, uint8_t segment)
 {
 	//Segment_Number must be inside 0 .. 3
 	//ASSERT (segment >= 0);
@@ -722,12 +722,7 @@ void lep_convert_pixmap
 
 	//Pixels values are 16b big endian.
 	//Convert pixel values to host byte order.
-	//Lepton_Packet_To_Host (Packet);
-
-	for (size_t i = 0; i < LEP2_WIDTH; i = i + 1)
-	{
-		pack->line [i] = be16toh (pack->line [i]);
-	}
+	lep_be16tohv (pack->line, LEP2_WIDTH);
 
 	//Assign video line to correct position in the pixmap.
 	memcpy 
@@ -739,3 +734,64 @@ void lep_convert_pixmap
 }
 
 
+int lep3_read_segment (int fd, struct lep_packet pack [LEP2_HEIGHT])
+{
+	lep_spi_receive (fd, (uint8_t *) pack, LEP_SEGMENT_SIZE);
+	
+	for (size_t i = 0; i < LEP2_HEIGHT; i = i + 1)
+	{
+		if (lep_check (pack + i) == 0)
+		{
+			return -1;
+		}
+	}
+	
+	if (pack [20].number != 20) 
+	{
+		lep_spi_receive (fd, (uint8_t *) pack, LEP_PACKET_SIZE);
+		return -2;
+	}
+	
+	//reserved has segment number in packet 20.
+	return (pack [20].reserved >> 4);
+}
+
+
+int lep3_stream (int spifd, int tofd)
+{
+	uint16_t pixmap [LEP3_WIDTH * LEP3_HEIGHT];
+	struct lep_packet pack [LEP2_HEIGHT];
+	
+	int seg = lep3_read_segment (spifd, pack);
+	if (seg < 0) {return -1;}
+	if (seg < 1) {return 0;}
+	
+	for (size_t i = 0; i < LEP2_HEIGHT; i = i + 1)
+	{
+		ASSERT ((seg - 1) >= 0);
+		lep_convert_pixmap (pack + i, pixmap, (uint8_t)(seg - 1));
+	}
+	if (seg != 4) {return 0;}
+	
+	int l = write (tofd, pixmap, sizeof (pixmap));
+	ASSERT (l == sizeof (pixmap));
+	return 0;
+}
+
+
+//This need to be called after gpio event
+void lep_epoll_gpiofd_acknowledge (int fd)
+{
+	lseek (fd, 0, SEEK_SET);
+	char c;
+	int r = read (fd, &c, 1);
+	ASSERT (r == 1);
+}
+
+//This need to be called after timder event
+void lep_epoll_timerfd_acknowledge (int fd)
+{
+	uint64_t m;
+	int r = read (fd, &m, sizeof (m));
+	ASSERT (r == sizeof (m));
+}
