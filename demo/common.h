@@ -45,14 +45,6 @@ void app_print_status (uint16_t status)
 }
 
 
-uint16_t app_status (int dev)
-{
-	uint16_t status = 0;
-	lep_i2c_read1 (dev, LEP_REG_STATUS, &status);
-	return status;
-}
-
-
 void app_reboot (int dev)
 {
 	uint16_t status = 0;
@@ -68,39 +60,11 @@ void app_reboot (int dev)
 }
 
 
-int app_read_stream (int dev, struct lep_packet * pack)
-{
-	lep_spi_receive (dev, (uint8_t *) pack, LEP_SEGMENT_SIZE);
-	
-	for (size_t i = 0; i < LEP2_HEIGHT; i = i + 1)
-	{
-		if (lep_check (pack + i) == 0)
-		{
-			return -1;
-		}
-	}
-	
-	if (pack [20].number != 20) 
-	{
-		lep_spi_receive (dev, (uint8_t *) pack, LEP_PACKET_SIZE);
-		return -2;
-	}
-	
-	//reserved has segment number in packet 20.
-	return (pack [20].reserved >> 4);
-}
-
-
-int app_debug_stream (int dev)
+int app_debug_stream (int fd)
 {
 	struct lep_packet pack [LEP2_HEIGHT];
-	
-	int r = app_read_stream (dev, pack);
-	if (r < 0)
-	{
-		return r;
-	}
-	
+	int seg = lep3_read_segment (fd, pack);
+	if (seg < 0) {return seg;}
 	for (size_t i = 0; i < LEP2_HEIGHT; i = i + 1)
 	{
 		uint8_t x = pack [i].number;
@@ -120,44 +84,6 @@ int app_debug_stream (int dev)
 	}
 	printf ("\n");
 	
-	return r;
+	return LEP_SUCCESS;
 }
 
-
-int app_write_stream (int dev)
-{
-	uint16_t pixmap [LEP3_WIDTH * LEP3_HEIGHT];
-	struct lep_packet pack [LEP2_HEIGHT];
-	
-	int seg = app_read_stream (dev, pack);
-	if (seg < 0) {return -1;}
-	if (seg < 1) {return 0;}
-	
-	for (size_t i = 0; i < LEP2_HEIGHT; i = i + 1)
-	{
-		ASSERT ((seg - 1) >= 0);
-		lep_convert_pixmap (pack + i, pixmap, (uint8_t)(seg - 1));
-	}
-	if (seg != 4) {return 0;}
-	
-	int l = write (STDOUT_FILENO, pixmap, sizeof (pixmap));
-	ASSERT (l == sizeof (pixmap));
-	return 0;
-}
-
-
-void app_epoll_handle_gpio (int fd)
-{
-	lseek (fd, 0, SEEK_SET);
-	char c;
-	int r = read (fd, &c, 1);
-	ASSERT (r == 1);
-}
-
-
-void app_epoll_handle_timer (int fd)
-{
-	uint64_t m;
-	int r = read (fd, &m, sizeof (m));
-	ASSERT (r == sizeof (m));
-}

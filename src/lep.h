@@ -807,3 +807,11 @@ float lep_to_celsius (uint16_t t)
 }
 
 
+uint16_t lep_i2c_status (int fd)
+{
+	uint16_t status = 0;
+	lep_i2c_read1 (fd, LEP_REG_STATUS, &status);
+	return status;
+}
+
+

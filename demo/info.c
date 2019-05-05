@@ -132,7 +132,7 @@ int main (int argc, char * argv [])
 			break;
 			
 			case 's':
-			app_print_status (app_status (fd));
+			app_print_status (lep_i2c_status (fd));
 			break;
 			
 			case 'v':
