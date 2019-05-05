@@ -47,6 +47,18 @@ int app_print_temp (int fd)
 }
 
 
+int app_print_uptime (int fd)
+{
+	uint16_t status = 0;
+	uint32_t uptime = 0;
+	int r;
+	r = lep_i2c_com (fd, LEP_COMID_UPTIME, &uptime, sizeof (uint32_t), &status);
+	printf ("%30s : %u\n", "LEP_COMID_UPTIME", uptime);	
+	return r;
+}
+
+
+
 int app_set_gpio (int fd, uint16_t mode)
 {
 	uint16_t status = 0;
@@ -110,7 +122,7 @@ int main (int argc, char * argv [])
 	
 	while (1)
 	{
-		int C = getopt (argc, argv, "hstrd:v:");
+		int C = getopt (argc, argv, "hsturDd:v:");
 		printf ("%s", "----------------------------------------------------\n");
 		if (C == -1) {break;}
 		switch (C)
@@ -128,7 +140,9 @@ int main (int argc, char * argv [])
 			printf ("-d<n>   : Set vsync delay\n");
 			printf ("-dq     : Print vsync delay\n");
 			printf ("-t      : Print temperature\n");
+			printf ("-u      : Print uptime\n");
 			printf ("-r      : Reboot\n");
+			printf ("-D      : Sleep one second\n");
 			break;
 			
 			case 's':
@@ -170,6 +184,14 @@ int main (int argc, char * argv [])
 			
 			case 'r':
 			app_reboot (fd);
+			break;
+			
+			case 'u':
+			app_print_uptime (fd);
+			break;
+			
+			case 'D':
+			sleep (1);
 			break;
 			
 			default:
