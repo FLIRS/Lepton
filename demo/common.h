@@ -30,11 +30,11 @@ void app_print_byte_str (uint8_t * x, size_t count)
 void app_print_status (uint16_t status)
 {
 	//TODO: Should error be 8 bit?
-	int8_t error;
+	int error;
 	//error = (status >> 8) | 0xFF00;
 	error = status >> 8;
-	char * ci = TCOL (TCOL_BOLD, TCOL_YELLOW, TCOL_DEFAULT);
-	char * ce = NULL;
+	char const * ci = TCOL (TCOL_BOLD, TCOL_YELLOW, TCOL_DEFAULT);
+	char const * ce = NULL;
 	if (error < 0) {ce = TCOL (TCOL_BOLD, TCOL_RED, TCOL_DEFAULT);}
 	else {ce = TCOL (TCOL_BOLD, TCOL_GREEN, TCOL_DEFAULT);}
 	printf ("%s%30s%s : %i\n", ci, "Status", TCOL_RESET, (int)status);
@@ -135,7 +135,8 @@ int app_write_stream (int dev)
 	
 	for (size_t i = 0; i < LEP2_HEIGHT; i = i + 1)
 	{
-		lep_convert_pixmap (pack + i, pixmap, seg - 1); 
+		ASSERT ((seg - 1) >= 0);
+		lep_convert_pixmap (pack + i, pixmap, (uint8_t)(seg - 1));
 	}
 	if (seg != 4) {return 0;}
 	

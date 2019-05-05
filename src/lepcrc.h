@@ -53,26 +53,17 @@ static unsigned short lep_crc_table [256] =
 0x2e93, 0x3eb2, 0x0ed1, 0x1ef0
 };
 
-enum Lep_CRC_Variant
-{
-	LEP_CRC16_CCITT
-};
-
-uint16_t lep_crc_calculate (enum Lep_CRC_Variant variant, uint8_t * data, size_t length, uint16_t seed, uint16_t last)
+//FLIR Lepton Datasheet Page 31.
+//CRC16_CCITT: x^16 + x^12 + x^5 + x^0
+uint16_t lepcrc (uint8_t * data, size_t length, uint16_t seed, uint16_t last)
 { 
 	size_t count;
 	unsigned int crc = seed;
 	unsigned int temp;
-	switch (variant)
+	for (count = 0; count < length; ++count)
 	{
-		case LEP_CRC16_CCITT:
-		for (count = 0; count < length; ++count)
-		{
-			temp = (*data++ ^ (crc >> 8)) & 0xff;
-			crc = lep_crc_table[temp] ^ (crc << 8);
-		}
-		break;
+		temp = (*data++ ^ (crc >> 8)) & 0xff;
+		crc = lep_crc_table[temp] ^ (crc << 8);
 	}
 	return (unsigned short)(crc ^ last);
-
 } 

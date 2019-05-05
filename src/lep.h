@@ -1,5 +1,6 @@
 #pragma once
 
+#include <assert.h> //true, false, bool
 #include <stdbool.h> //true, false, bool
 #include <sys/ioctl.h> //ioctl
 #include <fcntl.h> //open
@@ -9,7 +10,7 @@
 #include <unistd.h> //read
 #include <linux/spi/spidev.h> //spi_ioc_transfer
 #include <linux/i2c-dev.h>//I2C_SlAVE
-#include "crc.h"
+#include "lepcrc.h"
 
 
 //Assert is optional.
@@ -317,15 +318,8 @@ struct __attribute__((__packed__)) Lep_Packet
 };
 
 
-//TODO: Use static assertion.
-void lep_assertions ()
-{
-	struct Lep_Packet pack [LEP2_HEIGHT];
-	LEP_ASSERT (sizeof (pack [0]) == LEP_PACKET_SIZE);
-	LEP_ASSERT (sizeof (pack) == LEP_PACKET_SIZE * LEP2_HEIGHT);
-	LEP_ASSERT (LEP_SEGMENT_SIZE == LEP_PACKET_SIZE * LEP2_HEIGHT);
-	LEP_ASSERT (sizeof (pack) == LEP_SEGMENT_SIZE);
-}
+static_assert (sizeof (struct Lep_Packet) == LEP_PACKET_SIZE, "");
+static_assert (LEP_SEGMENT_SIZE == LEP_PACKET_SIZE * LEP2_HEIGHT, "");
 
 
 //Return false when CRC mismatch
@@ -353,7 +347,7 @@ bool lep_check (struct Lep_Packet * packet)
 	//Undocumented: CRC Seed equal zero.
 	//Checksum > 0 might not be useful here.
 	bool success;
-	uint16_t sum = lep_crc_calculate (LEP_CRC16_CCITT, (uint8_t *) packet, sizeof (struct Lep_Packet), 0, 0);
+	uint16_t sum = lepcrc ((uint8_t *) packet, sizeof (struct Lep_Packet), 0, 0);
 	success = (checksum > 0 && checksum == sum);
 
 	//Restore Checksum and Reserved.
@@ -566,7 +560,7 @@ int lep_i2c_com (int dev, uint16_t comid, void * data, size_t size8, uint16_t * 
 	if (!(*status & LEP_STATUS_BOOTMODE)) {return -2;};
 	if (!(*status & LEP_STATUS_BOOTSTATUS)) {return -2;};
 	//Set the data length register for setting or getting values.
-	R = lep_i2c_write1 (dev, LEP_REG_LENGTH, size8 / 2);
+	R = lep_i2c_write1 (dev, LEP_REG_LENGTH, (uint16_t)(size8 / 2));
 	if (R < 0) {return R;}
 	
 	switch (comid & LEP_COMTYPE_MASK)
@@ -600,6 +594,10 @@ int lep_i2c_com (int dev, uint16_t comid, void * data, size_t size8, uint16_t * 
 		R = lep_i2c_read1 (dev, LEP_REG_STATUS, status);
 		if (R < 0) {return R;}
 		if (*status != LEP_STATUS_OK) {return -5;};
+		break;
+		
+		default:
+		LEP_ASSERT (0);
 		break;
 	}
 	return R;
@@ -635,7 +633,7 @@ int lep_writef (int fd, char const * format, ...)
 	LEP_ASSERT_CF (len > 0, LEP_ERROR_ARG, "%s", "");
 	LEP_TRACE_F ("%s", buf);
 	LEP_BEGIN_SYSTEM_CALL;
-	res = write (fd, buf, len);
+	res = write (fd, buf, (size_t)len);
 	LEP_ASSERT_CF (res == len, LEP_ERROR_OPEN, "%s", buf);
 	if (res != len) {return LEP_ERROR_WRITE;}
 	return LEP_SUCCESS;
@@ -653,7 +651,7 @@ int lep_writef_nocheck (int fd, char const * format, ...)
 	printf ("%s\n", buf);
 	LEP_ASSERT_CF (len > 0, LEP_ERROR_ARG, "%s", "");
 	LEP_BEGIN_SYSTEM_CALL;
-	res = write (fd, buf, len);
+	res = write (fd, buf, (size_t)len);
 	va_end (ap);
 	if (res != len) {return LEP_ERROR_WRITE;}
 	return res;
