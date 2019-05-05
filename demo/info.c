@@ -33,78 +33,71 @@
 #include <inttypes.h>
 
 
-int app_print_temp (int dev)
+int app_print_temp (int fd)
 {
 	uint16_t status = 0;
-	uint16_t fpa_temp = 0;
-	uint16_t aux_temp = 0;
-	int R;
-	R = lep_i2c_com (dev, LEP_COMID_FPATEMP, &fpa_temp, sizeof (uint16_t), &status);
-	//R = lep_i2c_com (dev, LEP_COMID_AUXTEMP | LEP_COMTYPE_RUN, &aux_temp, sizeof (uint16_t), &status);
-	R = lep_i2c_com (dev, LEP_COMID_AUXTEMP, &aux_temp, sizeof (uint16_t), &status);
-	printf ("%30s : %f\n", "LEP_COMID_FPATEMP", (fpa_temp / 100.0f) - 273.15f);	
-	printf ("%30s : %f\n", "LEP_COMID_AUXTEMP", (aux_temp / 100.0f) - 273.15f);
-	return R;
+	uint16_t tfpa = 0;
+	uint16_t taux = 0;
+	int r;
+	r = lep_i2c_com (fd, LEP_COMID_FPATEMP, &tfpa, sizeof (uint16_t), &status);
+	r = lep_i2c_com (fd, LEP_COMID_AUXTEMP, &taux, sizeof (uint16_t), &status);
+	printf ("%30s : %f\n", "LEP_COMID_FPATEMP", lep_to_celsius (tfpa));	
+	printf ("%30s : %f\n", "LEP_COMID_AUXTEMP", lep_to_celsius (taux));
+	return r;
 }
 
 
-
-
-
-
-int app_set_gpio (int dev, uint16_t mode)
+int app_set_gpio (int fd, uint16_t mode)
 {
 	uint16_t status = 0;
-	int res;
-	res = lep_i2c_com (dev, LEP_COMID_GPIO | LEP_COMTYPE_SET, &mode, sizeof (uint16_t), &status);
-	app_print_status (status);
-	return res;
+	int r;
+	r = lep_i2c_com (fd, LEP_COMID_GPIO | LEP_COMTYPE_SET, &mode, sizeof (uint16_t), &status);
+	return r;
 }
 
 
-int app_set_vsync_delay (int dev, int32_t d)
+int app_set_vsync_delay (int fd, int32_t d)
 {
 	uint16_t status = 0;
-	int res;
-	res = lep_i2c_com (dev, LEP_COMID_VSYNC_DELAY | LEP_COMTYPE_SET, &d, sizeof (d), &status);
-	app_print_status (status);
-	return res;
+	int r;
+	r = lep_i2c_com (fd, LEP_COMID_VSYNC_DELAY | LEP_COMTYPE_SET, &d, sizeof (d), &status);
+	return r;
 }
 
 
-int app_set_vsync_delay_str (int dev, char const * d)
+int app_set_vsync_delaystr (int fd, char const * d)
 {
 	intmax_t j;
-	int res = 0;
+	int r = 0;
 	char * endptr;
 	j = strtoimax (d, &endptr, 10);
 	//if (-3 <= j && j <= 3)
 	{
-		res = app_set_vsync_delay (dev, (int32_t)j);
+		r = app_set_vsync_delay (fd, (int32_t)j);
 	}
-	return res;
+	return r;
 }
 
 
-int app_print_gpio (int dev)
+int app_print_gpio (int fd)
 {
 	uint16_t status = 0;
 	uint16_t mode = 0;
-	int res;
-	res = lep_i2c_com (dev, LEP_COMID_GPIO | LEP_COMTYPE_GET, &mode, sizeof (mode), &status);
+	int r;
+	r = lep_i2c_com (fd, LEP_COMID_GPIO | LEP_COMTYPE_GET, &mode, sizeof (mode), &status);
 	printf ("%30s : %i\n", "LEP_COMID_GPIO", (int) mode);
-	return res;
+	return r;
 }
 
 
-int app_print_vsync_delay (int dev)
+int app_print_vsync_delay (int fd)
 {
 	uint16_t status = 0;
 	int32_t d = 0;
-	int res;
-	res = lep_i2c_com (dev, LEP_COMID_VSYNC_DELAY | LEP_COMTYPE_GET, &d, sizeof (d), &status);
+	int r;
+	r = lep_i2c_com (fd, LEP_COMID_VSYNC_DELAY | LEP_COMTYPE_GET, &d, sizeof (d), &status);
 	printf ("%30s : %i\n", "LEP_COMID_VSYNC_DELAY", (int) d);
-	return res;
+	return r;
 }
 
 
@@ -113,7 +106,7 @@ int app_print_vsync_delay (int dev)
 
 int main (int argc, char * argv [])
 { 
-	int dev = lep_i2c_open (LEP_I2C_DEV_RPI3);
+	int fd = lep_i2c_open (LEP_I2C_DEV_RPI3);
 	
 	while (1)
 	{
@@ -129,46 +122,54 @@ int main (int argc, char * argv [])
 			case 'h':
 			printf ("-h      : Help\n");
 			printf ("-s      : Print status\n");
-			printf ("-v<0,1> : Enable/disable vsync\n");
-			printf ("-d      : Set vsync delay\n");
+			printf ("-v0     : Disable vsync\n");
+			printf ("-v1     : Enable vsync\n");
+			printf ("-vq     : Print vsync\n");
+			printf ("-d<n>   : Set vsync delay\n");
+			printf ("-dq     : Print vsync delay\n");
 			printf ("-t      : Print temperature\n");
 			printf ("-r      : Reboot\n");
 			break;
 			
 			case 's':
-			app_print_status (app_status (dev));
+			app_print_status (app_status (fd));
 			break;
 			
 			case 'v':
 			if (optarg == NULL) {break;}
+			if (optarg [0] == 'q')
+			{
+				app_print_gpio (fd);
+			}
 			if (optarg [0] == '1')
 			{
-				app_print_gpio (dev);
-				app_set_gpio (dev, LEP_GPIO_VSYNC);
-				app_print_gpio (dev);
+				app_set_gpio (fd, LEP_GPIO_VSYNC);
 			}
 			if (optarg [0] == '0')
 			{
-				app_print_gpio (dev);
-				app_set_gpio (dev, LEP_GPIO_MODE);
-				app_print_gpio (dev);
+				app_set_gpio (fd, LEP_GPIO_MODE);
 			}
 			break;
 			
 			case 'd':
 			if (optarg == NULL) {break;}
-			app_print_vsync_delay (dev);
-			app_set_vsync_delay_str (dev, optarg);
-			app_print_vsync_delay (dev);
+			if (optarg [0] == 'q')
+			{
+				app_print_vsync_delay (fd);
+			}
+			else
+			{
+				app_set_vsync_delaystr (fd, optarg);
+			}
 			break;
 			
 			case 't':
-			app_print_temp (dev);
+			app_print_temp (fd);
 			sleep (1);
 			break;
 			
 			case 'r':
-			app_reboot (dev);
+			app_reboot (fd);
 			break;
 			
 			default:

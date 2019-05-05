@@ -799,3 +799,11 @@ void lep_epoll_timerfd_acknowledge (int fd)
 	int r = read (fd, &m, sizeof (m));
 	ASSERT (r == sizeof (m));
 }
+
+
+float lep_to_celsius (uint16_t t)
+{
+	return ((float)t / 100.0f) - 273.15f;
+}
+
+
