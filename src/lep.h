@@ -54,16 +54,22 @@
 
 
 //Unofficial result
-enum Lep_Result
+enum lep_result
 {
 	LEP_SUCCESS = 0,
+	LEP_SEG0 = 1,
+	LEP_NOTREADY = 2,
+	
+	LEP_ERROR = -1,
+	LEP_ERROR_NULL = -2,
+	LEP_ERROR_ARG = -3,
+	LEP_ERROR_RANGE = -4,
+	LEP_ERROR_CRC = -5,
+	LEP_ERROR_NOT20 = -6,
 	LEP_ERROR_OPEN = -10,
 	LEP_ERROR_WRITE = -11,
-	LEP_ERROR_NULL = -20,
-	LEP_ERROR_ARG = -21,
-	LEP_ERROR_SPI = -4,
-	LEP_ERROR_I2C = -5,
-	LEP_ERROR_RANGE = -124
+	LEP_ERROR_SPI = -11,
+	LEP_ERROR_I2C = -12
 };
 
 
@@ -359,6 +365,16 @@ bool lep_check (struct lep_packet * packet)
 }
 
 
+int lep_mismatchv (struct lep_packet packet [], size_t n)
+{
+	while (n--)
+	{
+		if (lep_check (packet + n) == false) {return (int)n;}
+	}
+	return -1;
+}
+
+
 int lep_spi_open (char const * pathname)
 {
 	int fd;
@@ -561,9 +577,9 @@ int lep_i2c_com (int fd, uint16_t comid, void * data, size_t size8, uint16_t * s
 	int r;
 	r = lep_i2c_read1 (fd, LEP_REG_STATUS, status);
 	if (r < 0) {return r;}
-	if (*status & LEP_STATUS_BUSY) {return -2;};
-	if (!(*status & LEP_STATUS_BOOTMODE)) {return -2;};
-	if (!(*status & LEP_STATUS_BOOTSTATUS)) {return -2;};
+	if (*status & LEP_STATUS_BUSY) {return LEP_ERROR;};
+	if (!(*status & LEP_STATUS_BOOTMODE)) {return LEP_ERROR;};
+	if (!(*status & LEP_STATUS_BOOTSTATUS)) {return LEP_ERROR;};
 	//Set the data length register for setting or getting values.
 	r = lep_i2c_write1 (fd, LEP_REG_LENGTH, (uint16_t)(size8 / 2));
 	if (r < 0) {return r;}
@@ -705,7 +721,7 @@ int lep_isr_quit (int pin, int fd)
 	r = lep_writef (fd, "%i", pin);
 	close (fd);
 	if (r < 0) {return r;}
-	return 0;
+	return LEP_SUCCESS;
 }
 
 
@@ -737,21 +753,12 @@ void lep_convert_pixmap
 int lep3_read_segment (int fd, struct lep_packet pack [LEP2_HEIGHT])
 {
 	lep_spi_receive (fd, (uint8_t *) pack, LEP_SEGMENT_SIZE);
-	
-	for (size_t i = 0; i < LEP2_HEIGHT; i = i + 1)
-	{
-		if (lep_check (pack + i) == 0)
-		{
-			return -1;
-		}
-	}
-	
+	if (lep_mismatchv (pack, LEP2_HEIGHT) >= 0) {return LEP_ERROR_CRC;}
 	if (pack [20].number != 20) 
 	{
 		lep_spi_receive (fd, (uint8_t *) pack, LEP_PACKET_SIZE);
-		return -2;
+		return LEP_ERROR_NOT20;
 	}
-	
 	//reserved has segment number in packet 20.
 	return (pack [20].reserved >> 4);
 }
@@ -761,21 +768,18 @@ int lep3_stream (int spifd, int tofd)
 {
 	uint16_t pixmap [LEP3_WIDTH * LEP3_HEIGHT];
 	struct lep_packet pack [LEP2_HEIGHT];
-	
 	int seg = lep3_read_segment (spifd, pack);
-	if (seg < 0) {return -1;}
-	if (seg < 1) {return 0;}
-	
+	if (seg < 0) {return seg;}
+	if (seg == 0) {return LEP_SEG0;}
 	for (size_t i = 0; i < LEP2_HEIGHT; i = i + 1)
 	{
 		ASSERT ((seg - 1) >= 0);
 		lep_convert_pixmap (pack + i, pixmap, (uint8_t)(seg - 1));
 	}
-	if (seg != 4) {return 0;}
-	
+	if (seg != 4) {return LEP_NOTREADY;}
 	int l = write (tofd, pixmap, sizeof (pixmap));
 	ASSERT (l == sizeof (pixmap));
-	return 0;
+	return LEP_SUCCESS;
 }
 
 
