@@ -1,6 +1,6 @@
 #!/bin/bash
 
-gcc demo/test_grab_sys.c \
+gcc demo/test_grab_epoll.c \
 -Isrc \
 -Wall \
 -Wextra \
@@ -18,4 +18,4 @@ gcc demo/test_grab_sys.c \
 -Wconversion \
 -Wunreachable-code \
 -fsanitize=signed-integer-overflow \
--otest_grab_sys
+-obin/test_grab_epoll
