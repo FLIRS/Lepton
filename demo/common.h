@@ -68,7 +68,7 @@ void app_reboot (int dev)
 }
 
 
-int app_read_stream (int dev, struct Lep_Packet * pack)
+int app_read_stream (int dev, struct lep_packet * pack)
 {
 	lep_spi_receive (dev, (uint8_t *) pack, LEP_SEGMENT_SIZE);
 	
@@ -93,7 +93,7 @@ int app_read_stream (int dev, struct Lep_Packet * pack)
 
 int app_debug_stream (int dev)
 {
-	struct Lep_Packet pack [LEP2_HEIGHT];
+	struct lep_packet pack [LEP2_HEIGHT];
 	
 	int r = app_read_stream (dev, pack);
 	if (r < 0)
@@ -127,7 +127,7 @@ int app_debug_stream (int dev)
 int app_write_stream (int dev)
 {
 	uint16_t pixmap [LEP3_WIDTH * LEP3_HEIGHT];
-	struct Lep_Packet pack [LEP2_HEIGHT];
+	struct lep_packet pack [LEP2_HEIGHT];
 	
 	int seg = app_read_stream (dev, pack);
 	if (seg < 0) {return -1;}

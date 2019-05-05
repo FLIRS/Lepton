@@ -292,7 +292,8 @@ enum Lep_Vsync_Delay
 //  -------------------------------|----------------|------------------
 //  4 bits      | 12 bits          |  16 bits       | 160 Bytes
 //  ID_Reserved | ID_Packet_Number |  CRC           | Payload
-struct __attribute__((__packed__)) Lep_Packet
+__attribute__((__packed__)) 
+struct lep_packet
 {
 	//The ID field is located at byte 0 .. 1.
 	//The ID field is structured as following: (XXXX NNNN NNNN NNNN) 
@@ -318,13 +319,13 @@ struct __attribute__((__packed__)) Lep_Packet
 };
 
 
-static_assert (sizeof (struct Lep_Packet) == LEP_PACKET_SIZE, "");
+static_assert (sizeof (struct lep_packet) == LEP_PACKET_SIZE, "");
 static_assert (LEP_SEGMENT_SIZE == LEP_PACKET_SIZE * LEP2_HEIGHT, "");
 
 
 //Return false when CRC mismatch
 //Return true when CRC match
-bool lep_check (struct Lep_Packet * packet)
+bool lep_check (struct lep_packet * packet)
 {
 	//Might not be necessary.
 	//This holds segment number value at packet 20.
@@ -347,7 +348,7 @@ bool lep_check (struct Lep_Packet * packet)
 	//Undocumented: CRC Seed equal zero.
 	//Checksum > 0 might not be useful here.
 	bool success;
-	uint16_t sum = lepcrc ((uint8_t *) packet, sizeof (struct Lep_Packet), 0, 0);
+	uint16_t sum = lepcrc ((uint8_t *) packet, sizeof (struct lep_packet), 0, 0);
 	success = (checksum > 0 && checksum == sum);
 
 	//Restore Checksum and Reserved.
@@ -708,7 +709,7 @@ int lep_isr_quit (int pin, int fd)
 //depending on which row <Packet> are.
 void lep_convert_pixmap 
 (
-   struct Lep_Packet * pack, 
+   struct lep_packet * pack, 
    uint16_t * pixmap,
    uint8_t segment
 )
