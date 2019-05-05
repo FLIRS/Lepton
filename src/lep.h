@@ -142,7 +142,7 @@ enum Lep_Result
 //Interface (TWI) similar to I2C. The interface consists of a small number of registers through which a Host
 //issues commands to, and retrieves responses from the Lepton camera module. See Figure 1.
 //Figure 1 Lepton CCI/TWI Registers
-enum Lep_Reg
+enum lep_reg
 {
 	LEP_REG_STATUS = 0x0002,
 	LEP_REG_COMMAND = 0x0004,
@@ -174,7 +174,7 @@ enum Lep_Reg
 //into the upper 8-bits of the Status register (Bits 15-8). Then the camera de-asserts (sets to 0) the BUSY
 //bit to signal the Host the command is complete. See Figure 12 for the possible responses from the
 //camera to a command.
-enum Lep_Status
+enum lep_status
 {
 	LEP_STATUS_BUSY = 0x0001,
 	LEP_STATUS_BOOTMODE = 0x0002,
@@ -190,7 +190,7 @@ enum Lep_Status
 //For each of the Lepton camera modules, a unique Lepton Command ID identifies an element of the
 //module, either an attribute or property, or an action. Each camera module exposes up to 64 Command
 //IDs assigned to attributes and/or methods of that module.	
-enum Lep_Comid
+enum lep_comid
 {
 //4.4.12 SYS Ping Camera
 //This function sends the ping command to the camera. The camera will respond with LEP_OK if command received
@@ -233,7 +233,7 @@ LEP_COMID_VSYNC_DELAY    = 0x4858
 //• 0x00 Get a module property or attribute value
 //• 0x01 Set a module property or attribute value
 //• 0x02 Run – execute a camera operation exposed by that module
-enum Lep_Comtype
+enum lep_comtype
 {
 	LEP_COMTYPE_GET = 0x00,
 	LEP_COMTYPE_SET = 0x01,
@@ -244,7 +244,7 @@ enum Lep_Comtype
 
 //4.6.15 OEM GPIO Mode Select
 //This function gets and sets the GPIO pins mode.
-enum Lep_GPIO
+enum lep_gpio
 {
 	LEP_GPIO_MODE = 0,
 	LEP_GPIO_I2C_MASTER = 1,
@@ -260,15 +260,15 @@ enum Lep_GPIO
 //there is an inter VSync. The output pulse may be issued in phase with the camera’s internal VSync, or it may be
 //issued earlier or later. This command controls this phase relationship. The delays are in line periods,
 //approximately 0.5 milliseconds per period. The phase delay is limited to +/- 3 line periods.
-enum Lep_Vsync_Delay
+enum lep_vsyncdelay
 {
-	LEP_VSYNC_DELAY_MINUS3 = -3,
-	LEP_VSYNC_DELAY_MINUS2 = -2,
-	LEP_VSYNC_DELAY_MINUS1 = -1,
-	LEP_VSYNC_DELAY_NONE = 0,
-	LEP_VSYNC_DELAY_PLUS1 = 1,
-	LEP_VSYNC_DELAY_PLUS2 = 2,
-	LEP_VSYNC_DELAY_PLUS3 = 3
+	LEP_VSYNCDELAY_MINUS3 = -3,
+	LEP_VSYNCDELAY_MINUS2 = -2,
+	LEP_VSYNCDELAY_MINUS1 = -1,
+	LEP_VSYNCDELAY_NONE = 0,
+	LEP_VSYNCDELAY_PLUS1 = 1,
+	LEP_VSYNCDELAY_PLUS2 = 2,
+	LEP_VSYNCDELAY_PLUS3 = 3
 };
 
 
@@ -319,8 +319,8 @@ struct lep_packet
 };
 
 
-static_assert (sizeof (struct lep_packet) == LEP_PACKET_SIZE, "");
-static_assert (LEP_SEGMENT_SIZE == LEP_PACKET_SIZE * LEP2_HEIGHT, "");
+static_assert (sizeof (struct lep_packet) == LEP_PACKET_SIZE, "The struct is not correct size");
+static_assert ((sizeof (struct lep_packet) * LEP2_HEIGHT) == LEP_SEGMENT_SIZE, "The struct is not correct size");
 
 
 //Return false when CRC mismatch
@@ -359,60 +359,60 @@ bool lep_check (struct lep_packet * packet)
 }
 
 
-int lep_spi_open (char const * Name)
+int lep_spi_open (char const * pathname)
 {
-	int dev;
+	int fd;
 	int mode = LEP_SPI_MODE;
 	int bpw = LEP_SPI_BITS_PER_WORD;
 	int speed = LEP_SPI_SPEED_RECOMENDED;
-	int res;
+	int r;
 
 	LEP_BEGIN_SYSTEM_CALL;
-	dev = open (Name, O_RDWR, S_IRUSR | S_IWUSR);
-	LEP_ASSERT_CF (dev != -1, LEP_ERROR_SPI, "open %s", Name);
-	if (dev < 0) {return LEP_ERROR_SPI;}
+	fd = open (pathname, O_RDWR, S_IRUSR | S_IWUSR);
+	LEP_ASSERT_CF (fd != -1, LEP_ERROR_SPI, "open (%s, O_RDWR, S_IRUSR | S_IWUSR) failed", pathname);
+	if (fd < 0) {return LEP_ERROR_SPI;}
 
 	LEP_BEGIN_SYSTEM_CALL;
-	res = ioctl (dev, SPI_IOC_WR_MODE, &mode);
-	LEP_ASSERT_CF (res != -1, LEP_ERROR_SPI, "dev %i. can't set spi mode", dev);
-	if (res == -1) {return LEP_ERROR_SPI;}
+	r = ioctl (fd, SPI_IOC_WR_MODE, &mode);
+	LEP_ASSERT_CF (r != -1, LEP_ERROR_SPI, "ioctl (%i, SPI_IOC_WR_MODE). can't set spi mode", fd);
+	if (r == -1) {return LEP_ERROR_SPI;}
 	
 	LEP_BEGIN_SYSTEM_CALL;
-	res = ioctl (dev, SPI_IOC_WR_MAX_SPEED_HZ, &speed);
-	LEP_ASSERT_CF (res != -1, LEP_ERROR_SPI,"dev %i. can't set max speed hz", dev);
-	if (res == -1) {return LEP_ERROR_SPI;}
+	r = ioctl (fd, SPI_IOC_WR_MAX_SPEED_HZ, &speed);
+	LEP_ASSERT_CF (r != -1, LEP_ERROR_SPI,"ioctl (%i, SPI_IOC_WR_MAX_SPEED_HZ). can't set max speed hz", fd);
+	if (r == -1) {return LEP_ERROR_SPI;}
 
 	LEP_BEGIN_SYSTEM_CALL;
-	res = ioctl (dev, SPI_IOC_WR_BITS_PER_WORD, &bpw);
-	LEP_ASSERT_CF (res != -1, LEP_ERROR_SPI, "dev %i. can't set bits per word", dev);
-	if (res == -1) {return LEP_ERROR_SPI;}
+	r = ioctl (fd, SPI_IOC_WR_BITS_PER_WORD, &bpw);
+	LEP_ASSERT_CF (r != -1, LEP_ERROR_SPI, "ioctl (%i, SPI_IOC_WR_BITS_PER_WORD). can't set bits per word", fd);
+	if (r == -1) {return LEP_ERROR_SPI;}
 
 	LEP_BEGIN_SYSTEM_CALL;
-	res = ioctl (dev, SPI_IOC_RD_MODE, &mode);
-	LEP_ASSERT_CF (res != -1, LEP_ERROR_SPI, "dev %i. can't get spi mode", dev);
-	LEP_ASSERT_CF (mode == LEP_SPI_MODE, LEP_ERROR_SPI, "dev %i. ", dev);
-	if (res == -1) {return LEP_ERROR_SPI;}
+	r = ioctl (fd, SPI_IOC_RD_MODE, &mode);
+	LEP_ASSERT_CF (r != -1, LEP_ERROR_SPI, "ioctl (%i, SPI_IOC_RD_MODE). can't get spi mode", fd);
+	LEP_ASSERT_CF (mode == LEP_SPI_MODE, LEP_ERROR_SPI, "fd %i. ", fd);
+	if (r == -1) {return LEP_ERROR_SPI;}
 
 	LEP_BEGIN_SYSTEM_CALL;
-	res = ioctl (dev, SPI_IOC_RD_BITS_PER_WORD, &bpw);
-	LEP_ASSERT_CF (res != -1, LEP_ERROR_SPI, "dev %i. can't get bits per word", dev);
-	LEP_ASSERT_CF (bpw == LEP_SPI_BITS_PER_WORD, LEP_ERROR_SPI, "dev %i. ", dev);
-	if (res == -1) {return LEP_ERROR_SPI;}
+	r = ioctl (fd, SPI_IOC_RD_BITS_PER_WORD, &bpw);
+	LEP_ASSERT_CF (r != -1, LEP_ERROR_SPI, "ioctl (%i, SPI_IOC_RD_BITS_PER_WORD). can't get bits per word", fd);
+	LEP_ASSERT_CF (bpw == LEP_SPI_BITS_PER_WORD, LEP_ERROR_SPI, "fd %i. ", fd);
+	if (r == -1) {return LEP_ERROR_SPI;}
 
 	LEP_BEGIN_SYSTEM_CALL;
-	res = ioctl (dev, SPI_IOC_RD_MAX_SPEED_HZ, &speed);
-	LEP_ASSERT_CF (res != -1, LEP_ERROR_SPI, "dev %i. can't get max speed hz", dev);
-	LEP_ASSERT_CF (speed == LEP_SPI_SPEED_RECOMENDED, LEP_ERROR_SPI, "dev %i. ", dev);
-	if (res == -1) {return LEP_ERROR_SPI;}
+	r = ioctl (fd, SPI_IOC_RD_MAX_SPEED_HZ, &speed);
+	LEP_ASSERT_CF (r != -1, LEP_ERROR_SPI, "ioctl (%i, SPI_IOC_RD_MAX_SPEED_HZ). can't get max speed hz", fd);
+	LEP_ASSERT_CF (speed == LEP_SPI_SPEED_RECOMENDED, LEP_ERROR_SPI, "fd %i. ", fd);
+	if (r == -1) {return LEP_ERROR_SPI;}
 
-	return dev;
+	return fd;
 }
 
 
 //Return -1 when not successful.
 //Return count when successful.
-//Receive <count> number of uint8_t <data> from SPI <device>
-int lep_spi_receive (int device, uint8_t * data, size_t count)
+//Receive <count> number of uint8_t <data> from SPI <fd>
+int lep_spi_receive (int fd, uint8_t * data, size_t count)
 {
 	struct spi_ioc_transfer transfer;
 	memset ((void *) &transfer, 0, sizeof (struct spi_ioc_transfer));
@@ -433,20 +433,20 @@ int lep_spi_receive (int device, uint8_t * data, size_t count)
 	//ioctl SPI_IOC_MESSAGE returns the number of elements transfered.
 	//LEP_TRACE_F ("SPI_IOC_MESSAGE%s", "");
 	LEP_BEGIN_SYSTEM_CALL;
-	int R = ioctl (device, SPI_IOC_MESSAGE (1), &transfer);
-	LEP_ASSERT_CF (R == (int) count, LEP_ERROR_SPI, "filedescriptor %i. ioctl SPI_IOC_MESSAGE", device);
+	int r = ioctl (fd, SPI_IOC_MESSAGE (1), &transfer);
+	LEP_ASSERT_CF (r == (int) count, LEP_ERROR_SPI, "ioctl (%i, SPI_IOC_MESSAGE (1)). Error receiving SPI message", fd);
 
-	return R;
+	return r;
 }
 
 
-int lep_i2c_open (char const * name)
+int lep_i2c_open (char const * pathname)
 {
-	LEP_ASSERT_CF (name != NULL, LEP_ERROR_NULL, "%s", "");
+	LEP_ASSERT_CF (pathname != NULL, LEP_ERROR_NULL, "%s", "");
 	int fd;
 	LEP_BEGIN_SYSTEM_CALL;
-	fd = open (name, O_RDWR);
-	LEP_TRACE_F ("open (%s, O_RDWR) : %i", name, fd);
+	fd = open (pathname, O_RDWR);
+	LEP_TRACE_F ("open (%s, O_RDWR) : %i", pathname, fd);
 	LEP_ASSERT_CF (fd != -1, LEP_ERROR_I2C, "open%s", "")
 	if (fd == -1) {return LEP_ERROR_OPEN;}
 	int r;

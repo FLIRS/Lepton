@@ -59,7 +59,6 @@ int main (int argc, char * argv [])
 	ASSERT (fdspi >= 0);
 	ASSERT (fdi2c >= 0);
 	
-	int vsync_counter = 0;
 	int gaurd_counter = 0;
 
 	struct epoll_event events [10];
@@ -95,14 +94,11 @@ int main (int argc, char * argv [])
 				lep_epoll_gpiofd_acknowledge (fdg);
 				int r = lep3_stream (fdspi, STDOUT_FILENO);
 				if (r >= 0) {gaurd_counter = 0;}
-				vsync_counter ++;
 			}
 			
 			else if (events [i].data.fd == fdt)
 			{
 				lep_epoll_timerfd_acknowledge (fdt);
-				printf ("vsync/sec %i\n", vsync_counter);
-				vsync_counter = 0;
 				if (gaurd_counter >= 3)
 				{
 					app_reboot (fdi2c);
