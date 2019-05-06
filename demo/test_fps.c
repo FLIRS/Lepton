@@ -9,7 +9,6 @@
 
 #include "debug.h"
 #include "lep.h"
-#include "crc.h"
 #include "common.h"
 
 //printf
@@ -41,27 +40,33 @@
 
 int main (int argc, char * argv [])
 {
-	int C = 1;
-	while (C != -1)
+	while (1)
 	{
-		C = getopt (argc, argv, "");
-		switch (C)
+		int c = getopt (argc, argv, "");
+		if (c < 0) {break;}
+		switch (c)
 		{	
 			default:
 			break;
 		}
 	}
 	
+	int fde = epoll_create1 (0);
+	int fdt = timerfd_create (CLOCK_MONOTONIC, 0);
+	int fdg = lep_create_gpiofd (17);
 	
-	int efd;
-	int tfd;
-	int pinfd;
+	int fdspi = lep_spi_open (LEP_SPI_DEV_RPI3);
+	int fdi2c = lep_i2c_open (LEP_I2C_DEV_RPI3);
+	
+	ASSERT (fde >= 0);
+	ASSERT (fdt >= 0);
+	ASSERT (fdg >= 0);
+	ASSERT (fdspi >= 0);
+	ASSERT (fdi2c >= 0);
+
 	int counter = 0;
 	
 	struct epoll_event events [APP_EVENT_COUNT];
-	
-	tfd = timerfd_create (CLOCK_MONOTONIC, 0);
-	ASSERT (tfd > 0);
 	
 	{
 		struct itimerspec ts;
@@ -69,40 +74,29 @@ int main (int argc, char * argv [])
 		ts.it_interval.tv_nsec = 0;
 		ts.it_value.tv_sec = APP_SAMPLE_PERIOD;
 		ts.it_value.tv_nsec = 0;
-		int r = timerfd_settime (tfd, 0, &ts, NULL);
+		int r = timerfd_settime (fdt, 0, &ts, NULL);
 		ASSERT (r == 0);
 	}
 	
-	pinfd = lep_isr_init (APP_VSYNC_GPIOPIN);
-	efd = epoll_create1 (0);
-	ASSERT (efd > 0);
-	
-	app_epoll_add (efd, EPOLLIN | EPOLLET, tfd);
-	app_epoll_add (efd, EPOLLIN | EPOLLPRI | EPOLLET, pinfd);
-	
+	app_epoll_add (fde, EPOLLIN | EPOLLET, fdt);
+	app_epoll_add (fde, EPOLLIN | EPOLLPRI | EPOLLET, fdg);
 	
 	while (1)
 	{
-		int n = epoll_wait (efd, events, APP_EVENT_COUNT, -1);
+		int n = epoll_wait (fde, events, APP_EVENT_COUNT, -1);
 		ASSERT (n > 0);
 		for (int i = 0; i < n; i = i + 1)
 		{
-			if (events [i].data.fd == pinfd)
+			if (events [i].data.fd == fdg)
 			{
-				char c;
-				lseek (pinfd, 0, SEEK_SET);
-				int res = read (pinfd, &c, 1);
-				ASSERT (res == 1);
+				lep_epoll_gpiofd_acknowledge (fdg);
 				counter ++;
 			}
 			
-			else if (events [i].data.fd == tfd)
+			else if (events [i].data.fd == fdt)
 			{
-				uint64_t m;
-				int res = read (tfd, &m, sizeof (m));
-				ASSERT (res == sizeof (m));
-				printf ("F*%04i: %i\n", (int) APP_SAMPLE_PERIOD, (int) counter);
-				printf ("F*%04i: %f\n", (int) 1, (float) counter / APP_SAMPLE_PERIOD);
+				lep_epoll_timerfd_acknowledge (fdt);
+				printf ("fps %05i/%02i %05f\n", (int) counter, (int) APP_SAMPLE_PERIOD, (float) counter / APP_SAMPLE_PERIOD);
 				counter = 0;
 			}
 		}
