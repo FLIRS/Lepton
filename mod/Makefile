@@ -1,4 +1,4 @@
-obj-m+=src/mod/lepmod.o
+obj-m+=lepmod.o
 
 all:
 	make -C /lib/modules/$(shell uname -r)/build/ M=$(PWD) modules
