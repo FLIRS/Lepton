@@ -16,11 +16,26 @@
 #include <linux/interrupt.h>
 #include <linux/kobject.h>
 #include <linux/time.h>
+#include <linux/fs.h>
+#include <linux/pci.h>
+#include <linux/spi/spi.h>
+#include <linux/dma-mapping.h>
+#include <linux/pci_ids.h>
+#include <linux/uaccess.h>
+#include <linux/sched.h>
+#include <linux/workqueue.h>
+#include "lep.h"
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Johan Söderlind Åström");
 MODULE_DESCRIPTION("A FLIR Lepton driver for Raspberry PI 3");
 MODULE_VERSION("0.1");
+
+#define BUF_SIZE 164
+#define BITS_PER_WORD 8
+#define LEPTON_SPEED_HZ 12500000
+#define DEVICE_NAME "lepton"
+#define CLASS_NAME "lepton"
 
 static unsigned int vsync_pin = 17;
 // S_IRUGO can be read/not changed
@@ -31,28 +46,20 @@ static char   vsync_pinname[8] = "gpioXXX";
 static int    vsync_irqnr;
 static int    vsync_n = 0;
 static struct timespec ts_last, ts_current, ts_diff;
+static struct spi_device* spi_dev = NULL;
+static int    major_number;
+static struct class *leptonClass = NULL;
+static struct device *leptonDevice = NULL;
+static struct lep_packet packet [LEP2_HEIGHT] = {0};
+static struct lep_packet packet1 = {0};
+struct spi_transfer xfers [1];
+struct spi_message message;
 
-// Function prototype for the custom IRQ handler function -- see below for the implementation
-static irq_handler_t  lepmod_irq_handler (unsigned int irq, void *dev_id, struct pt_regs *regs);
-
-/** @brief A callback function to output the vsync_n variable
- *  @param kobj represents a kernel object device that appears in the sysfs filesystem
- *  @param attr the pointer to the kobj_attribute struct
- *  @param buf the buffer to which to write the number of presses
- *  @return return the total number of characters written to the buffer (excluding null)
- */
 static ssize_t vsync_n_show (struct kobject *kobj, struct kobj_attribute *attr, char *buf)
 {
 	return sprintf(buf, "%d\n", vsync_n);
 }
 
-/** @brief A callback function to read in the vsync_n variable
- *  @param kobj represents a kernel object device that appears in the sysfs filesystem
- *  @param attr the pointer to the kobj_attribute struct
- *  @param buf the buffer from which to read the number of presses (e.g., reset to 0).
- *  @param count the number characters in the buffer
- *  @return return should return the total number of characters used from the buffer
- */
 static ssize_t vsync_n_store
 (struct kobject *kobj, struct kobj_attribute *attr, const char *buf, size_t count)
 {
@@ -60,7 +67,7 @@ static ssize_t vsync_n_store
 	return count;
 }
 
-/** @brief Displays the last time the button was pressed -- manually output the date (no localization) */
+
 static ssize_t lastTime_show 
 (struct kobject *kobj, struct kobj_attribute *attr, char *buf)
 {
@@ -71,7 +78,6 @@ static ssize_t lastTime_show
 	return sprintf (buf, format, h, m, s, ts_last.tv_nsec);
 }
 
-/** @brief Display the time difference in the form secs.nanosecs to 9 places */
 static ssize_t diffTime_show
 (struct kobject *kobj, struct kobj_attribute *attr, char *buf)
 {
@@ -79,37 +85,30 @@ static ssize_t diffTime_show
 	return sprintf (buf, format, ts_diff.tv_sec, ts_diff.tv_nsec);
 }
 
+static ssize_t packet1_show
+(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+{
+	char const format [] = "%02x %02x %04x\n";
+	return sprintf (buf, format, packet1.reserved, packet1.number, packet1.checksum);
+}
 
 
-/**  Use these helper macros to define the name and access levels of the kobj_attributes
- *  The kobj_attribute has an attribute attr (name and mode), show and store function pointers
- *  The count variable is associated with the vsync_n variable and it is to be exposed
- *  with mode 0666 using the vsync_n_show and vsync_n_store functions above
- */
+
 static struct kobj_attribute count_attr = __ATTR(vsync_n, 0444, vsync_n_show, vsync_n_store);
-
-/**  The __ATTR_RO macro defines a read-only attribute. There is no need to identify that the
- *  function is called _show, but it must be present. __ATTR_WO can be  used for a write-only
- *  attribute but only in Linux 3.11.x on.
- */
-// the last time pressed kobject attr
 static struct kobj_attribute time_attr  = __ATTR_RO(lastTime);
-// the difference in time attr
 static struct kobj_attribute diff_attr  = __ATTR_RO(diffTime);
+static struct kobj_attribute packet1_attr  = __ATTR_RO(packet1);
 
-/**  The lepmod_attrs[] is an array of attributes that is used to create the attribute group below.
- *  The attr property of the kobj_attribute is used to extract the attribute struct
- */
 static struct attribute *lepmod_attrs [] = 
 {
-	// The number of button presses
 	&count_attr.attr,
-	// Time of the last button press in HH:MM:SS:NNNNNNNNN
 	&time_attr.attr,
-	// The difference in time between the last two presses
 	&diff_attr.attr,
+	&packet1_attr.attr,
 	NULL,
 };
+
+
 
 /**  The attribute group uses the attribute array and a name, which is exposed on sysfs -- in this
  *  case it is gpio115, which is automatically defined in the lepmod_init() function below
@@ -125,22 +124,104 @@ static struct attribute_group attr_group =
 
 static struct kobject *ebb_kobj;
 
-/** @brief The LKM initialization function
- *  The static keyword restricts the visibility of the function to within this C file. The __init
- *  macro means that for a built-in driver (not a LKM) the function is only used at initialization
- *  time and that it can be discarded and its memory freed up after that point. In this example this
- *  function sets up the GPIOs and the IRQ
- *  @return returns 0 if successful
- */
+// Function prototype for the custom IRQ handler function -- see below for the implementation
+static irqreturn_t lepmod_irq_handler (int irq, void * dev_id);
+
+
+
+
+
+static int dev_open (struct inode *ignore1, struct file *ignore2)
+{
+	return 0;
+}
+
+static int dev_release (struct inode *ignore1, struct file *ignore2)
+{
+	return 0;
+}
+
+static ssize_t dev_read (struct file *f, char *out, size_t len, loff_t *off)
+{
+	int result = 0;
+	return result;
+}
+
+
+
+static struct file_operations fops =
+{
+	.open = dev_open,
+	.read = dev_read,
+	.release = dev_release,
+};
+
+
+static int lepton_driver_list (struct device *dev, void *n)
+{
+	const struct spi_device *spi = to_spi_device(dev);
+	printk(KERN_INFO "Found spi device [%s]\n", spi->modalias);
+	return !strcmp(spi->modalias, "spidev");
+}
+
+
 static int __init lepmod_init (void)
 {
 	int result = 0;
-
+	struct spi_master *master = NULL;
+	u16 i;
 	printk (KERN_INFO "lepmod: Initializing the lepmod LKM\n");
 	
-	// Create the gpio17 name for /sys/lepmod/gpio17
-	// create the kobject sysfs entry at /sys/ebb -- probably not an ideal location!
-	// kernel_kobj points to /sys/kernel
+	memset (&xfers [0], 0, sizeof(struct spi_transfer));
+	memset (&message, 0, sizeof (struct spi_message));
+	xfers [0].rx_buf = kmalloc (LEP_PACKET_SIZE, GFP_DMA | GFP_KERNEL);
+	if(!xfers [0].rx_buf)
+	{
+		printk(KERN_ALERT "Failed to allocate %d bytes for lepton\n", (int)LEP_PACKET_SIZE);
+		return -EBUSY;
+	}
+	xfers [0].len = LEP_PACKET_SIZE;
+	memset (xfers [0].rx_buf, 0, LEP_PACKET_SIZE);
+	xfers [0].speed_hz = LEPTON_SPEED_HZ;
+	xfers [0].bits_per_word = BITS_PER_WORD;
+	xfers [0].cs_change = 0;
+	xfers [0].delay_usecs = 10;
+
+	for (i = 0; i < 10 && !spi_dev; ++i)
+	{
+		master = spi_busnum_to_master (i);
+		if(master == NULL) {continue;}
+		printk(KERN_INFO "Found master on bus %d\n", (int)i);
+		spi_dev = (struct spi_device*) device_find_child (&master->dev, NULL, lepton_driver_list);
+	}
+	if(!spi_dev)
+	{
+		printk(KERN_ALERT "No spidev found for lepton module\n");
+		return -ENODEV;
+	}
+	major_number = register_chrdev (0, DEVICE_NAME, &fops);
+	if(major_number < 0)
+	{
+		printk(KERN_ALERT "Failed to register lepton major number!\n");
+		return major_number;
+	}
+	leptonClass = class_create (THIS_MODULE, CLASS_NAME);
+	if (IS_ERR(leptonClass))
+	{
+		unregister_chrdev(major_number, DEVICE_NAME);
+		printk(KERN_ALERT "Failed to register lepton device class!\n");
+		return PTR_ERR(leptonClass);
+	}
+	leptonDevice = device_create (leptonClass, NULL, MKDEV(major_number, 0), NULL, DEVICE_NAME);
+	if (IS_ERR(leptonDevice))
+	{
+		class_unregister (leptonClass);
+		class_destroy (leptonClass);
+		unregister_chrdev (major_number, DEVICE_NAME);
+		printk (KERN_ALERT "Failed to create lepton device!\n");
+		return PTR_ERR(leptonDevice);
+	}
+	printk (KERN_INFO "Lepton intialized\n");
 	sprintf (vsync_pinname, "gpio%d", vsync_pin);
 	ebb_kobj = kobject_create_and_add ("lepmod", kernel_kobj->parent);
 	if(!ebb_kobj)
@@ -148,89 +229,84 @@ static int __init lepmod_init (void)
 		printk (KERN_ALERT "lepmod: failed to create kobject mapping\n");
 		return -ENOMEM;
 	}
-	
-	// add the attributes to /sys/lepmod/ -- for example, /sys/lepmod/gpio17/vsync_n
 	result = sysfs_create_group (ebb_kobj, &attr_group);
 	if(result)
 	{
-		// clean up -- remove the kobject sysfs entry
 		printk (KERN_ALERT "lepmod: failed to create sysfs group\n");
 		kobject_put(ebb_kobj);
 		return result;
 	}
-	
-	// set the last time to be the current time
-	// set the initial time difference to be 0
 	getnstimeofday (&ts_last);
 	ts_diff = timespec_sub (ts_last, ts_last);
-
-	// Set up the vsync_pin
-	// Set the button GPIO to be an input
-	// Causes gpio17 to appear in /sys/class/gpio
-	// the bool argument prevents the direction from being changed
 	gpio_request (vsync_pin, "sysfs");
 	gpio_direction_input (vsync_pin);
 	gpio_export (vsync_pin, false);
-	
-	// Perform a quick test to see that the gpiopin is working as expected on LKM load
 	printk (KERN_INFO "lepmod: The gpio%d value is %d\n", vsync_pin, gpio_get_value (vsync_pin));
-	
-	// GPIO numbers and IRQ numbers are not the same! This function performs the mapping for us
 	vsync_irqnr = gpio_to_irq (vsync_pin);
 	printk (KERN_INFO "lepmod: The gpio%d is mapped to IRQ: %d\n", vsync_pin, vsync_irqnr);
-	
-	// This next call requests an interrupt line
-	// The interrupt number requested
-	// The pointer to the handler function below
-	// Use the custom kernel param to set interrupt type
-	// Used in /proc/interrupts to identify the owner
-	// The *dev_id for shared interrupt lines, NULL is okay
-	result = request_irq (vsync_irqnr,(irq_handler_t) lepmod_irq_handler, IRQF_TRIGGER_RISING, "lepmod_irq_handler",  NULL);
+	result = request_irq (vsync_irqnr, lepmod_irq_handler, IRQF_TRIGGER_RISING, "lepmod_irq_handler",  NULL);
+	if (result)
+	{
+		printk (KERN_ERR "lepmod: cannot register IRQ %d\n", vsync_irqnr);
+	}
 	return result;
 }
 
-/** @brief The LKM cleanup function
- *  Similar to the initialization function, it is static. The __exit macro notifies that if this
- *  code is used for a built-in driver (not a LKM) that this function is not required.
- */
+
 static void __exit lepmod_exit(void)
 {
-	// clean up -- remove the kobject sysfs entry
-	// Free the IRQ number, no *dev_id required in this case
-	// Unexport the GPIO
-	// Free the GPIO
 	printk (KERN_INFO "lepmod: The number of vsync was %d times\n", vsync_n);
 	kobject_put (ebb_kobj);
 	free_irq (vsync_irqnr, NULL); 
 	gpio_unexport (vsync_pin);
 	gpio_free (vsync_pin);
+    printk (KERN_INFO "Cleaning up lepton module.\n");
+    device_destroy (leptonClass, MKDEV(major_number, 0));
+    class_unregister (leptonClass);
+    class_destroy (leptonClass);
+    unregister_chrdev (major_number, DEVICE_NAME);
+	if (xfers[0].rx_buf)
+	{
+		kfree (xfers[0].rx_buf);
+	}
 	printk (KERN_INFO "lepmod: Goodbye from the lepmod LKM!\n");
 }
 
-/** @brief The GPIO IRQ Handler function
- *  This function is a custom interrupt handler that is attached to the GPIO above. The same interrupt
- *  handler cannot be invoked concurrently as the interrupt line is masked out until the function is complete.
- *  This function is static as it should not be invoked directly from outside of this file.
- *  @param irq    the IRQ number that is associated with the GPIO -- useful for logging.
- *  @param dev_id the *dev_id that is provided -- can be used to identify which device caused the interrupt
- *  Not used in this example as NULL is passed.
- *  @param regs   h/w specific register values -- only really ever used for debugging.
- *  return returns IRQ_HANDLED if successful -- should return IRQ_NONE otherwise.
- */
-static irq_handler_t lepmod_irq_handler (unsigned int irq, void *dev_id, struct pt_regs *regs)
+
+static void read_complete (void *arg)
 {
-	// Get the current time as ts_current
-	// Determine the time difference between last 2 events
-	// Store the current time as the last time ts_last
+	complete (arg);
+}
+
+static int read_test (void)
+{
+	int status;
+	DECLARE_COMPLETION_ONSTACK (context);
+	
+	spi_message_init (&message);
+	spi_message_add_tail (&xfers [0], &message);
+	message.complete = read_complete;
+	message.context = &context;
+	status = spi_async (spi_dev, &message);
+	if (status < 0)
+	{
+		printk (KERN_ALERT "lepmod: spi_async not ok\n");
+		disable_irq_nosync (vsync_irqnr); 
+	}
+	return status;
+}
+
+
+static irqreturn_t lepmod_irq_handler (int irq, void * dev_id)
+{
+	disable_irq_nosync (irq); 
 	getnstimeofday (&ts_current);
 	ts_diff = timespec_sub (ts_current, ts_last);
 	ts_last = ts_current;                
-	//printk (KERN_INFO "lepmod: The vsync_pin %d state is currently: %d\n", pin, gpio_get_value(vsync_pin));
-	vsync_n ++;
-	return (irq_handler_t) IRQ_HANDLED;
+	//vsync_n ++;
+	read_test ();
+	return IRQ_HANDLED;
 }
 
-// This next calls are  mandatory -- they identify the initialization function
-// and the cleanup function (as above).
 module_init(lepmod_init);
 module_exit(lepmod_exit);
