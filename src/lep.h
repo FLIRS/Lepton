@@ -225,14 +225,65 @@ LEP_COMID_REBOOT         = 0x4842,
 //This function gets and sets the GPIO pins mode.
 LEP_COMID_GPIO           = 0x4854,
 
-//4.6.16 OEM GPIO VSync Phase Delay
+//4.7.16 OEM GPIO VSync Phase Delay
 //This function gets and sets the GPIO VSync phase delay. The Lepton Camera can issue a pulse on GPIO3 when
 //there is an inter VSync. The output pulse may be issued in phase with the camera’s internal VSync, or it may be
 //issued earlier or later. This command controls this phase relationship. The delays are in line periods,
 //approximately 0.5 milliseconds per period. The phase delay is limited to +/- 3 line periods.
-LEP_COMID_VSYNC_DELAY    = 0x4858
+LEP_COMID_VSYNC_DELAY    = 0x4858,
+
+//4.5.15 SYS Shutter Position Control
+//This command is used to manually control the position of the attached shutter if one exists.
+//If there is an attached shutter, then this command will return its current position.
+//If there is no shutter attached, it will return LEP_SYS_SHUTTER_POSITION_UNKNOWN.
+LEP_COMID_SHUTTER_POS = 0x0239,
+
+//4.5.16 SYS FFC Mode Control
+//This command controls the FFC mode and shutter control during an FFC.
+//FFC modes allow for manual control, automatic control based upon time or temperature changes, and external control.
+//If a shutter is attached this command controls the shutter activity profile.
+LEP_COMID_SHUTTER_CTRL = 0x023C
 };
 
+
+enum lep_shutter_mode
+{
+	LEP_SHUTTER_MANUAL,
+	LEP_SHUTTER_AUTO,
+	LEP_SHUTTER_EXTERNAL
+};
+
+//4.5.16 SYS FFC Mode Control
+//This command controls the FFC mode and shutter control during an FFC.
+//FFC modes allow for manual control, automatic control based upon time or temperature changes, and external control.
+//If a shutter is attached this command controls the shutter activity profile.
+struct __attribute__((__packed__))
+lep_shutter_ctrl
+{
+	uint32_t mode;
+	uint32_t lockout;
+	uint32_t fcc_freeze;
+	uint32_t ffc_desired;
+	uint32_t fcc_time;
+	uint32_t ffc_period;
+	uint32_t open_explicit;
+	uint16_t fcc_desired_deltatemp;
+	uint16_t imminent_delay;
+};
+
+
+//4.5.15 SYS Shutter Position Control
+//This command is used to manually control the position of the attached shutter if one exists.
+//If there is an attached shutter, then this command will return its current position.
+//If there is no shutter attached, it will return LEP_SYS_SHUTTER_POSITION_UNKNOWN.
+enum lep_shutter_pos
+{
+	LEP_SHUTTER_IDLE,
+	LEP_SHUTTER_OPEN,
+	LEP_SHUTTER_CLOSED,
+	LEP_SHUTTER_BRAKEON
+};
+	
 
 //2.1.3.4 Command Type
 //A command type specifies what the command does.

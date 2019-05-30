@@ -58,6 +58,48 @@ int app_print_uptime (int fd)
 }
 
 
+int app_print_shutter_ctrl (int fd)
+{
+	uint16_t status = 0;
+	struct lep_shutter_ctrl ctrl = {0};
+	int r;
+	r = lep_i2c_com (fd, LEP_COMID_SHUTTER_CTRL, &ctrl, sizeof (struct lep_shutter_ctrl), &status);
+	printf ("%30s : %u\n", "mode", ctrl.mode);
+	printf ("%30s : %u\n", "lockout", ctrl.lockout);
+	printf ("%30s : %u\n", "fcc_freeze", ctrl.fcc_freeze);
+	printf ("%30s : %u\n", "ffc_desired", ctrl.ffc_desired);
+	printf ("%30s : %u\n", "fcc_time", ctrl.fcc_time);
+	printf ("%30s : %u\n", "ffc_period", ctrl.ffc_period);
+	printf ("%30s : %u\n", "open_explicit", ctrl.open_explicit);
+	printf ("%30s : %u\n", "fcc_desired_deltatemp", ctrl.fcc_desired_deltatemp);
+	printf ("%30s : %u\n", "imminent_delay", ctrl.imminent_delay);
+	return r;
+}
+
+
+int app_print_shutter_ctrl_mode (int fd)
+{
+	uint16_t status = 0;
+	struct lep_shutter_ctrl ctrl = {0};
+	int r;
+	r = lep_i2c_com (fd, LEP_COMID_SHUTTER_CTRL, &ctrl, sizeof (struct lep_shutter_ctrl), &status);
+	printf ("%30s : %u\n", "mode", ctrl.mode);
+	return r;
+}
+
+
+int app_set_shutter_ctrl_mode (int fd, enum lep_shutter_mode mode)
+{
+	uint16_t status = 0;
+	struct lep_shutter_ctrl ctrl = {0};
+	int r;
+	r = lep_i2c_com (fd, LEP_COMID_SHUTTER_CTRL | LEP_COMTYPE_GET, &ctrl, sizeof (struct lep_shutter_ctrl), &status);
+	ctrl.mode = mode;
+	r = lep_i2c_com (fd, LEP_COMID_SHUTTER_CTRL | LEP_COMTYPE_SET, &ctrl, sizeof (struct lep_shutter_ctrl), &status);
+	return r;
+}
+
+
 
 int app_set_gpio (int fd, uint16_t mode)
 {
@@ -122,7 +164,7 @@ int main (int argc, char * argv [])
 	
 	while (1)
 	{
-		int C = getopt (argc, argv, "hsturDd:v:");
+		int C = getopt (argc, argv, "hsturDd:v:cm:m");
 		printf ("%s", "----------------------------------------------------\n");
 		if (C == -1) {break;}
 		switch (C)
@@ -143,6 +185,11 @@ int main (int argc, char * argv [])
 			printf ("-u      : Print uptime\n");
 			printf ("-r      : Reboot\n");
 			printf ("-D      : Sleep one second\n");
+			printf ("-c      : Print shutter ctrl\n");
+			printf ("-mq     : Print mode\n");
+			printf ("-m0     : Shutter mode manual\n");
+			printf ("-m1     : Shutter mode auto\n");
+			printf ("-m2     : Shutter mode external\n");
 			break;
 			
 			case 's':
@@ -192,6 +239,30 @@ int main (int argc, char * argv [])
 			
 			case 'D':
 			sleep (1);
+			break;
+			
+			case 'c':
+			app_print_shutter_ctrl (fd);
+			break;
+			
+			case 'm':
+			if (optarg == NULL) {break;}
+			if (optarg [0] == 'q')
+			{
+				app_print_shutter_ctrl_mode (fd);
+			}
+			else if (optarg [0] == '0')
+			{
+				app_set_shutter_ctrl_mode (fd, LEP_SHUTTER_MANUAL);
+			}
+			else if (optarg [0] == '1')
+			{
+				app_set_shutter_ctrl_mode (fd, LEP_SHUTTER_AUTO);
+			}
+			else if (optarg [0] == '2')
+			{
+				app_set_shutter_ctrl_mode (fd, LEP_SHUTTER_EXTERNAL);
+			}
 			break;
 			
 			default:
