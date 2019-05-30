@@ -32,6 +32,25 @@
 
 
 
+void com (int fd, uint16_t comid, void * data, size_t size8)
+{
+	uint16_t status = 0;
+	int r;
+	r = lep_i2c_com (fd, comid, data, size8, &status);
+	printf ("%30s : id=%u, r=%s, status=%i, error=%i, busy=%i\n", "COMMAND", comid, lep_result_str (r), status, status >> 8, status & LEP_STATUS_BUSY);
+}
+
+void reboot (int fd)
+{
+	com (fd, LEP_COMID_REBOOT | LEP_COMTYPE_RUN, NULL, 0);
+	uint16_t mode = LEP_GPIO_VSYNC;
+	com (fd, LEP_COMID_GPIO | LEP_COMTYPE_SET, &mode, sizeof (mode));
+	struct lep_shutter_ctrl ctrl = {0};
+	ctrl.mode = LEP_SHUTTER_MANUAL;
+	com (fd, LEP_COMID_SHUTTER_CTRL | LEP_COMTYPE_SET, &ctrl, sizeof (ctrl));
+}
+
+
 int main (int argc, char * argv [])
 {
 	while (1)
@@ -101,7 +120,7 @@ int main (int argc, char * argv [])
 				lep_epoll_timerfd_acknowledge (fdt);
 				if (gaurd_counter >= 3)
 				{
-					app_reboot (fdi2c);
+					reboot (fdi2c);
 					gaurd_counter = 0;
 				}
 				gaurd_counter ++;

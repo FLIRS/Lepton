@@ -27,39 +27,6 @@ void app_print_byte_str (uint8_t * x, size_t count)
 }
 
 
-void app_print_status (uint16_t status)
-{
-	//TODO: Should error be 8 bit?
-	int error;
-	//error = (status >> 8) | 0xFF00;
-	error = status >> 8;
-	char const * ci = TCOL (TCOL_BOLD, TCOL_YELLOW, TCOL_DEFAULT);
-	char const * ce = NULL;
-	if (error < 0) {ce = TCOL (TCOL_BOLD, TCOL_RED, TCOL_DEFAULT);}
-	else {ce = TCOL (TCOL_BOLD, TCOL_GREEN, TCOL_DEFAULT);}
-	printf ("%s%30s%s : %i\n", ci, "Status", TCOL_RESET, (int)status);
-	printf ("%s%30s%s : %s%i\n", ci, "status >> 8 = Error", TCOL_RESET, ce, (int)error);
-	printf ("%s%30s%s : %i\n", ci, "LEP_STATUS_BUSY", TCOL_RESET, (int)!!(status & LEP_STATUS_BUSY));
-	printf ("%s%30s%s : %i\n", ci, "LEP_STATUS_BOOTMODE", TCOL_RESET, (int)!!(status & LEP_STATUS_BOOTMODE));
-	printf ("%s%30s%s : %i\n", ci, "LEP_STATUS_BOOTSTATUS", TCOL_RESET, (int)!!(status & LEP_STATUS_BOOTSTATUS));
-}
-
-
-void app_reboot (int dev)
-{
-	uint16_t status = 0;
-	//int dev = lep_i2c_open (LEP_I2C_DEV_RPI3);
-	printf ("dev: %i\n", dev);
-	printf ("rebooting..");
-	lep_i2c_com (dev, LEP_COMID_REBOOT | LEP_COMTYPE_RUN, NULL, 0, &status);
-	sleep (2);
-	uint16_t mode = LEP_GPIO_VSYNC;
-	lep_i2c_com (dev, LEP_COMID_GPIO | LEP_COMTYPE_SET, &mode, sizeof (uint16_t), &status);
-	app_print_status (status);
-	//close (dev);
-}
-
-
 int app_debug_stream (int fd)
 {
 	struct lep_packet pack [LEP2_HEIGHT];

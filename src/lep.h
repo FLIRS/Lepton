@@ -68,9 +68,32 @@ enum lep_result
 	LEP_ERROR_NOT20 = -6,
 	LEP_ERROR_OPEN = -10,
 	LEP_ERROR_WRITE = -11,
-	LEP_ERROR_SPI = -11,
-	LEP_ERROR_I2C = -12
+	LEP_ERROR_READ = -12,
+	LEP_ERROR_SPI = -13,
+	LEP_ERROR_I2C = -14,
+	LEP_ERROR_STATUS = -16
 };
+
+
+char const * lep_result_str (int r)
+{
+	switch (r)
+	{
+	case LEP_SUCCESS: return "LEP_SUCCESS";
+	case LEP_ERROR_NULL: return "LEP_ERROR_NULL";
+	case LEP_ERROR_ARG: return "LEP_ERROR_ARG";
+	case LEP_ERROR_RANGE: return "LEP_ERROR_RANGE";
+	case LEP_ERROR_CRC: return "LEP_ERROR_CRC";
+	case LEP_ERROR_NOT20: return "LEP_ERROR_NOT20";
+	case LEP_ERROR_OPEN: return "LEP_ERROR_OPEN";
+	case LEP_ERROR_WRITE: return "LEP_ERROR_WRITE";
+	case LEP_ERROR_READ: return "LEP_ERROR_READ";
+	case LEP_ERROR_SPI: return "LEP_ERROR_SPI";
+	case LEP_ERROR_I2C: return "LEP_ERROR_I2C";
+	case LEP_ERROR_STATUS: return "LEP_ERROR_STATUS";
+	default: return "";
+	}
+}
 
 
 //9.2.1 VoSPI Physical Interface
@@ -554,7 +577,7 @@ int lep_i2c_read16 (int fd, uint16_t * data, size_t n)
 	r = read (fd, (void *) data, size8);
 	LEP_TRACE_F ("read (%i, data, %i) : %i", fd, size8, r);
 	LEP_ASSERT_CF (r == (int) size8, LEP_ERROR_I2C, "Reading from fd %i failed", fd);
-	if (r != (int) size8) {return LEP_ERROR_WRITE;}
+	if (r != (int) size8) {return LEP_ERROR_READ;}
 	lep_be16tohv (data, n);
 	return r;
 }
@@ -584,6 +607,7 @@ int lep_i2c_regread (int fd, uint16_t reg, void * data, size_t size8)
 	LEP_ASSERT_CF (size8 <= sizeof (uint16_t) * LEP_DATAREG_COUNT, LEP_ERROR_I2C, "%s", "");
 	//Select start address to read from.
 	r = lep_i2c_write16 (fd, &reg, 1);
+	if (r < 0) {return r;}
 	//Read from that start address.
 	r = lep_i2c_read16 (fd, data, n);
 	return r;
@@ -628,9 +652,9 @@ int lep_i2c_com (int fd, uint16_t comid, void * data, size_t size8, uint16_t * s
 	int r;
 	r = lep_i2c_read1 (fd, LEP_REG_STATUS, status);
 	if (r < 0) {return r;}
-	if (*status & LEP_STATUS_BUSY) {return LEP_ERROR;};
-	if (!(*status & LEP_STATUS_BOOTMODE)) {return LEP_ERROR;};
-	if (!(*status & LEP_STATUS_BOOTSTATUS)) {return LEP_ERROR;};
+	if (*status & LEP_STATUS_BUSY) {return LEP_ERROR_STATUS;};
+	if (!(*status & LEP_STATUS_BOOTMODE)) {return LEP_ERROR_STATUS;};
+	if (!(*status & LEP_STATUS_BOOTSTATUS)) {return LEP_ERROR_STATUS;};
 	//Set the data length register for setting or getting values.
 	r = lep_i2c_write1 (fd, LEP_REG_LENGTH, (uint16_t)(size8 / 2));
 	if (r < 0) {return r;}
@@ -639,40 +663,47 @@ int lep_i2c_com (int fd, uint16_t comid, void * data, size_t size8, uint16_t * s
 	{
 		//Get a module property or attribute value
 		case LEP_COMTYPE_GET:
+		usleep (10);
 		r = lep_i2c_write1 (fd, LEP_REG_COMMAND, comid);
 		if (r < 0) {return r;}
+		usleep (10);
 		r = lep_i2c_read1 (fd, LEP_REG_STATUS, status);
 		if (r < 0) {return r;}
-		if (*status != LEP_STATUS_OK) {return -3;};
+		if (*status != LEP_STATUS_OK) {return LEP_ERROR_STATUS;};
 		r = lep_i2c_regread (fd, LEP_REG_DATA0, data, size8);
 		break;
 		
 		//Set a module property or attribute value
 		case LEP_COMTYPE_SET:
+		usleep (10);
 		r = lep_i2c_regwrite (fd, LEP_REG_DATA0, data, size8);
 		if (r < 0) {return r;}
+		usleep (10);
 		r = lep_i2c_write1 (fd, LEP_REG_COMMAND, comid);
 		if (r < 0) {return r;}
+		usleep (10);
 		r = lep_i2c_read1 (fd, LEP_REG_STATUS, status);
 		if (r < 0) {return r;}
-		if (*status != LEP_STATUS_OK) {return -4;};
+		if (*status != LEP_STATUS_OK) {return LEP_ERROR_STATUS;};
 		break;
 		
 		//Run – execute a camera operation exposed by that module
 		case LEP_COMTYPE_RUN:
+		usleep (10);
 		r = lep_i2c_write1 (fd, LEP_REG_COMMAND, comid);
 		if (r < 0) {return r;}
-		if (comid & LEP_COMID_REBOOT) {break;}
+		if (comid & LEP_COMID_REBOOT) {sleep (2);}
+		usleep (10);
 		r = lep_i2c_read1 (fd, LEP_REG_STATUS, status);
 		if (r < 0) {return r;}
-		if (*status != LEP_STATUS_OK) {return -5;};
+		if (*status != LEP_STATUS_OK) {return LEP_ERROR_STATUS;};
 		break;
 		
 		default:
 		LEP_ASSERT (0);
 		break;
 	}
-	return r;
+	return LEP_SUCCESS;
 }
 
 

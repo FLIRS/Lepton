@@ -33,37 +33,56 @@
 #include <inttypes.h>
 
 
-int app_print_temp (int fd)
+void com (int fd, uint16_t comid, void * data, size_t size8)
 {
 	uint16_t status = 0;
+	int r;
+	r = lep_i2c_com (fd, comid, data, size8, &status);
+	printf ("%30s : id=%u, r=%s, status=%i, error=%i, busy=%i\n", "COMMAND", comid, lep_result_str (r), status, status >> 8, status & LEP_STATUS_BUSY);
+}
+
+
+void app_print_status (uint16_t status)
+{
+	//TODO: Should error be 8 bit?
+	int error;
+	//error = (status >> 8) | 0xFF00;
+	error = status >> 8;
+	char const * ci = TCOL (TCOL_BOLD, TCOL_YELLOW, TCOL_DEFAULT);
+	char const * ce = NULL;
+	if (error < 0) {ce = TCOL (TCOL_BOLD, TCOL_RED, TCOL_DEFAULT);}
+	else {ce = TCOL (TCOL_BOLD, TCOL_GREEN, TCOL_DEFAULT);}
+	printf ("%s%30s%s : %i\n", ci, "Status", TCOL_RESET, (int)status);
+	printf ("%s%30s%s : %s%i\n", ci, "status >> 8 = Error", TCOL_RESET, ce, (int)error);
+	printf ("%s%30s%s : %i\n", ci, "LEP_STATUS_BUSY", TCOL_RESET, (int)!!(status & LEP_STATUS_BUSY));
+	printf ("%s%30s%s : %i\n", ci, "LEP_STATUS_BOOTMODE", TCOL_RESET, (int)!!(status & LEP_STATUS_BOOTMODE));
+	printf ("%s%30s%s : %i\n", ci, "LEP_STATUS_BOOTSTATUS", TCOL_RESET, (int)!!(status & LEP_STATUS_BOOTSTATUS));
+}
+
+
+void app_print_temp (int fd)
+{
 	uint16_t tfpa = 0;
 	uint16_t taux = 0;
-	int r;
-	r = lep_i2c_com (fd, LEP_COMID_FPATEMP, &tfpa, sizeof (uint16_t), &status);
-	r = lep_i2c_com (fd, LEP_COMID_AUXTEMP, &taux, sizeof (uint16_t), &status);
+	com (fd, LEP_COMID_FPATEMP, &tfpa, sizeof (uint16_t));
+	com (fd, LEP_COMID_AUXTEMP, &taux, sizeof (uint16_t));
 	printf ("%30s : %f\n", "LEP_COMID_FPATEMP", lep_to_celsius (tfpa));	
 	printf ("%30s : %f\n", "LEP_COMID_AUXTEMP", lep_to_celsius (taux));
-	return r;
 }
 
 
-int app_print_uptime (int fd)
+void app_print_uptime (int fd)
 {
-	uint16_t status = 0;
 	uint32_t uptime = 0;
-	int r;
-	r = lep_i2c_com (fd, LEP_COMID_UPTIME, &uptime, sizeof (uint32_t), &status);
+	com (fd, LEP_COMID_UPTIME, &uptime, sizeof (uint32_t));
 	printf ("%30s : %u\n", "LEP_COMID_UPTIME", uptime);	
-	return r;
 }
 
 
-int app_print_shutter_ctrl (int fd)
+void app_print_shutter_ctrl (int fd)
 {
-	uint16_t status = 0;
 	struct lep_shutter_ctrl ctrl = {0};
-	int r;
-	r = lep_i2c_com (fd, LEP_COMID_SHUTTER_CTRL, &ctrl, sizeof (struct lep_shutter_ctrl), &status);
+	com (fd, LEP_COMID_SHUTTER_CTRL, &ctrl, sizeof (struct lep_shutter_ctrl));
 	printf ("%30s : %u\n", "mode", ctrl.mode);
 	printf ("%30s : %u\n", "lockout", ctrl.lockout);
 	printf ("%30s : %u\n", "fcc_freeze", ctrl.fcc_freeze);
@@ -73,85 +92,74 @@ int app_print_shutter_ctrl (int fd)
 	printf ("%30s : %u\n", "open_explicit", ctrl.open_explicit);
 	printf ("%30s : %u\n", "fcc_desired_deltatemp", ctrl.fcc_desired_deltatemp);
 	printf ("%30s : %u\n", "imminent_delay", ctrl.imminent_delay);
-	return r;
 }
 
 
-int app_print_shutter_ctrl_mode (int fd)
+void app_print_shutter_ctrl_mode (int fd)
 {
-	uint16_t status = 0;
 	struct lep_shutter_ctrl ctrl = {0};
-	int r;
-	r = lep_i2c_com (fd, LEP_COMID_SHUTTER_CTRL, &ctrl, sizeof (struct lep_shutter_ctrl), &status);
+	com (fd, LEP_COMID_SHUTTER_CTRL, &ctrl, sizeof (struct lep_shutter_ctrl));
 	printf ("%30s : %u\n", "mode", ctrl.mode);
-	return r;
 }
 
 
-int app_set_shutter_ctrl_mode (int fd, enum lep_shutter_mode mode)
+void app_set_shutter_ctrl_mode (int fd, enum lep_shutter_mode mode)
 {
-	uint16_t status = 0;
 	struct lep_shutter_ctrl ctrl = {0};
-	int r;
-	r = lep_i2c_com (fd, LEP_COMID_SHUTTER_CTRL | LEP_COMTYPE_GET, &ctrl, sizeof (struct lep_shutter_ctrl), &status);
+	com (fd, LEP_COMID_SHUTTER_CTRL | LEP_COMTYPE_GET, &ctrl, sizeof (struct lep_shutter_ctrl));
 	ctrl.mode = mode;
-	r = lep_i2c_com (fd, LEP_COMID_SHUTTER_CTRL | LEP_COMTYPE_SET, &ctrl, sizeof (struct lep_shutter_ctrl), &status);
-	return r;
+	com (fd, LEP_COMID_SHUTTER_CTRL | LEP_COMTYPE_SET, &ctrl, sizeof (struct lep_shutter_ctrl));
 }
 
 
-
-int app_set_gpio (int fd, uint16_t mode)
+void app_set_shutter_pos (int fd, enum lep_shutter_pos pos)
 {
-	uint16_t status = 0;
-	int r;
-	r = lep_i2c_com (fd, LEP_COMID_GPIO | LEP_COMTYPE_SET, &mode, sizeof (uint16_t), &status);
-	return r;
+	com (fd, LEP_COMID_SHUTTER_CTRL | LEP_COMTYPE_SET, &pos, sizeof (uint32_t));
 }
 
 
-int app_set_vsync_delay (int fd, int32_t d)
+void app_print_shutter_pos (int fd)
 {
-	uint16_t status = 0;
-	int r;
-	r = lep_i2c_com (fd, LEP_COMID_VSYNC_DELAY | LEP_COMTYPE_SET, &d, sizeof (d), &status);
-	return r;
+	uint32_t pos;
+	com (fd, LEP_COMID_SHUTTER_CTRL, &pos, sizeof (pos));
+	printf ("%30s : %u\n", "pos", pos);
 }
 
 
-int app_set_vsync_delaystr (int fd, char const * d)
+void app_set_gpio (int fd, uint16_t mode)
+{
+	com (fd, LEP_COMID_GPIO | LEP_COMTYPE_SET, &mode, sizeof (uint16_t));
+}
+
+
+void app_set_vsync_delay (int fd, int32_t d)
+{
+	com (fd, LEP_COMID_VSYNC_DELAY | LEP_COMTYPE_SET, &d, sizeof (d));
+}
+
+
+void app_set_vsync_delaystr (int fd, char const * d)
 {
 	intmax_t j;
-	int r = 0;
 	char * endptr;
 	j = strtoimax (d, &endptr, 10);
-	//if (-3 <= j && j <= 3)
-	{
-		r = app_set_vsync_delay (fd, (int32_t)j);
-	}
-	return r;
+	app_set_vsync_delay (fd, (int32_t)j);
 }
 
 
-int app_print_gpio (int fd)
+void app_print_gpio (int fd)
 {
-	uint16_t status = 0;
 	uint16_t mode = 0;
-	int r;
-	r = lep_i2c_com (fd, LEP_COMID_GPIO | LEP_COMTYPE_GET, &mode, sizeof (mode), &status);
+	com (fd, LEP_COMID_GPIO | LEP_COMTYPE_GET, &mode, sizeof (mode));
 	printf ("%30s : %i\n", "LEP_COMID_GPIO", (int) mode);
-	return r;
 }
 
 
-int app_print_vsync_delay (int fd)
+void app_print_vsync_delay (int fd)
 {
-	uint16_t status = 0;
 	int32_t d = 0;
-	int r;
-	r = lep_i2c_com (fd, LEP_COMID_VSYNC_DELAY | LEP_COMTYPE_GET, &d, sizeof (d), &status);
+	com (fd, LEP_COMID_VSYNC_DELAY | LEP_COMTYPE_GET, &d, sizeof (d));
 	printf ("%30s : %i\n", "LEP_COMID_VSYNC_DELAY", (int) d);
-	return r;
 }
 
 
@@ -164,7 +172,7 @@ int main (int argc, char * argv [])
 	
 	while (1)
 	{
-		int C = getopt (argc, argv, "hsturDd:v:cm:m");
+		int C = getopt (argc, argv, "hsturDd:v:cm:mp:");
 		printf ("%s", "----------------------------------------------------\n");
 		if (C == -1) {break;}
 		switch (C)
@@ -190,6 +198,11 @@ int main (int argc, char * argv [])
 			printf ("-m0     : Shutter mode manual\n");
 			printf ("-m1     : Shutter mode auto\n");
 			printf ("-m2     : Shutter mode external\n");
+			printf ("-pq     : Print shutter position\n");
+			printf ("-p0     : Shutter position idle\n");
+			printf ("-p1     : Shutter position open\n");
+			printf ("-p2     : Shutter position closed\n");
+			printf ("-p2     : Shutter position breakon\n");
 			break;
 			
 			case 's':
@@ -230,7 +243,7 @@ int main (int argc, char * argv [])
 			break;
 			
 			case 'r':
-			app_reboot (fd);
+			com (fd, LEP_COMID_REBOOT | LEP_COMTYPE_RUN, NULL, 0);
 			break;
 			
 			case 'u':
@@ -262,6 +275,30 @@ int main (int argc, char * argv [])
 			else if (optarg [0] == '2')
 			{
 				app_set_shutter_ctrl_mode (fd, LEP_SHUTTER_EXTERNAL);
+			}
+			break;
+			
+			case 'p':
+			if (optarg == NULL) {break;}
+			if (optarg [0] == 'q')
+			{
+				app_print_shutter_pos (fd);
+			}
+			else if (optarg [0] == '0')
+			{
+				app_set_shutter_pos (fd, LEP_SHUTTER_IDLE);
+			}
+			else if (optarg [0] == '1')
+			{
+				app_set_shutter_pos (fd, LEP_SHUTTER_OPEN);
+			}
+			else if (optarg [0] == '2')
+			{
+				app_set_shutter_pos (fd, LEP_SHUTTER_CLOSED);
+			}
+			else if (optarg [0] == '3')
+			{
+				app_set_shutter_pos (fd, LEP_SHUTTER_BRAKEON);
 			}
 			break;
 			
