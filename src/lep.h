@@ -269,6 +269,24 @@ LEP_COMID_SHUTTER_CTRL = 0x023C
 };
 
 
+char const * lep_comid_str (int r)
+{
+	switch (r)
+	{
+	case LEP_COMID_PING: return "LEP_COMID_PING";
+	case LEP_COMID_UPTIME: return "LEP_COMID_UPTIME";
+	case LEP_COMID_AUXTEMP: return "LEP_COMID_AUXTEMP";
+	case LEP_COMID_FPATEMP: return "LEP_COMID_FPATEMP";
+	case LEP_COMID_REBOOT: return "LEP_COMID_REBOOT";
+	case LEP_COMID_GPIO: return "LEP_COMID_GPIO";
+	case LEP_COMID_VSYNC_DELAY: return "LEP_COMID_VSYNC_DELAY";
+	case LEP_COMID_SHUTTER_POS: return "LEP_COMID_SHUTTER_POS";
+	case LEP_COMID_SHUTTER_CTRL: return "LEP_COMID_SHUTTER_CTRL";
+	default: return "";
+	}
+}
+
+
 enum lep_shutter_mode
 {
 	LEP_SHUTTER_MANUAL,

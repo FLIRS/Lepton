@@ -38,7 +38,7 @@ void com (int fd, uint16_t comid, void * data, size_t size8)
 	uint16_t status = 0;
 	int r;
 	r = lep_i2c_com (fd, comid, data, size8, &status);
-	printf ("%30s : id=%u, r=%s, status=%i, error=%i, busy=%i\n", "COMMAND", comid, lep_result_str (r), status, status >> 8, status & LEP_STATUS_BUSY);
+	printf ("%30s : id=%s, r=%s, status=%i, error=%i, busy=%i\n", "COMMAND", lep_comid_str (comid), lep_result_str (r), status, status >> 8, status & LEP_STATUS_BUSY);
 }
 
 
