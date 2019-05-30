@@ -242,7 +242,7 @@ LEP_COMID_FPATEMP        = 0x0214,
 
 //4.6.11 OEM Run Camera Re-Boot
 //This function commands the Camera to re-boot. The Camera is first shutdown, and then restarts automatically.
-LEP_COMID_REBOOT         = 0x4842,
+LEP_COMID_REBOOT         = 0x4840,
 
 //4.6.15 OEM GPIO Mode Select
 //This function gets and sets the GPIO pins mode.
@@ -267,11 +267,25 @@ LEP_COMID_SHUTTER_POS = 0x0239,
 //If a shutter is attached this command controls the shutter activity profile.
 LEP_COMID_SHUTTER_CTRL = 0x023C
 };
+	
 
-
-char const * lep_comid_str (int r)
+//2.1.3.4 Command Type
+//A command type specifies what the command does.
+//• 0x00 Get a module property or attribute value
+//• 0x01 Set a module property or attribute value
+//• 0x02 Run – execute a camera operation exposed by that module
+enum lep_comtype
 {
-	switch (r)
+	LEP_COMTYPE_GET = 0x00,
+	LEP_COMTYPE_SET = 0x01,
+	LEP_COMTYPE_RUN = 0x02,
+	LEP_COMTYPE_MASK = 0x03
+};
+
+
+char const * lep_comid_str (int comid)
+{
+	switch (comid & ~LEP_COMTYPE_MASK)
 	{
 	case LEP_COMID_PING: return "LEP_COMID_PING";
 	case LEP_COMID_UPTIME: return "LEP_COMID_UPTIME";
@@ -323,20 +337,6 @@ enum lep_shutter_pos
 	LEP_SHUTTER_OPEN,
 	LEP_SHUTTER_CLOSED,
 	LEP_SHUTTER_BRAKEON
-};
-	
-
-//2.1.3.4 Command Type
-//A command type specifies what the command does.
-//• 0x00 Get a module property or attribute value
-//• 0x01 Set a module property or attribute value
-//• 0x02 Run – execute a camera operation exposed by that module
-enum lep_comtype
-{
-	LEP_COMTYPE_GET = 0x00,
-	LEP_COMTYPE_SET = 0x01,
-	LEP_COMTYPE_RUN = 0x02,
-	LEP_COMTYPE_MASK = 0x03
 };
 
 
@@ -445,6 +445,7 @@ bool lep_check (struct lep_packet * packet)
 	//CRC16_CCITT: x^16 + x^12 + x^5 + x^0
 	//Undocumented: CRC Seed equal zero.
 	//Checksum > 0 might not be useful here.
+	//if (((float)rand()/(float)RAND_MAX)<0.001f) packet->payload [rand()%LEP_PAYLOAD_SIZE] = (uint8_t)rand();
 	bool success;
 	uint16_t sum = lepcrc ((uint8_t *) packet, sizeof (struct lep_packet), 0, 0);
 	success = (checksum > 0 && checksum == sum);
@@ -734,6 +735,7 @@ int lep_openf (int oflags, char const * format, ...)
 	int len = vsnprintf (buf, sizeof (buf), format, ap);
 	va_end (ap);
 	LEP_ASSERT_CF (len > 0, LEP_ERROR_ARG, "%s", "");
+	if (len < 0) {return len;}
 	LEP_TRACE_F ("open %s", buf);
 	LEP_BEGIN_SYSTEM_CALL;
 	fd = open (buf, oflags);
@@ -769,8 +771,8 @@ int lep_writef_nocheck (int fd, char const * format, ...)
 	va_list ap;
 	va_start (ap, format);
 	len = vsnprintf (buf, sizeof (buf), format, ap);
-	printf ("%s\n", buf);
 	LEP_ASSERT_CF (len > 0, LEP_ERROR_ARG, "%s", "");
+	if (len < 0) {return len;}
 	LEP_BEGIN_SYSTEM_CALL;
 	r = write (fd, buf, (size_t)len);
 	va_end (ap);
