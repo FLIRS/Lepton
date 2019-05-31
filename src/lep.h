@@ -214,6 +214,35 @@ enum lep_status
 };
 
 
+enum lep_serror
+{
+	LEP_SERROR                           = -1,
+	LEP_SERROR_NOT_READY                 = -2,
+	LEP_SERROR_RANGE                     = -3,
+	LEP_SERROR_CHECKSUM                  = -4,
+	LEP_SERROR_BAD_ARG_POINTER           = -5,
+	LEP_SERROR_DATA_SIZE                 = -6,
+	LEP_SERROR_UNDEFINED_FUNCTION        = -7,
+	LEP_SERROR_FUNCTION_NOT_SUPPORTED    = -8,
+};
+
+
+char const * lep_serror_str (int serror)
+{
+	switch (serror)
+	{
+	case LEP_SERROR: return "LEP_SERROR";
+	case LEP_SERROR_NOT_READY: return "LEP_SERROR_NOT_READY";
+	case LEP_SERROR_RANGE: return "LEP_SERROR_RANGE";
+	case LEP_SERROR_CHECKSUM: return "LEP_SERROR_CHECKSUM";
+	case LEP_SERROR_BAD_ARG_POINTER: return "LEP_SERROR_BAD_ARG_POINTER";
+	case LEP_SERROR_DATA_SIZE: return "LEP_SERROR_DATA_SIZE";
+	case LEP_SERROR_UNDEFINED_FUNCTION: return "LEP_SERROR_UNDEFINED_FUNCTION";
+	case LEP_SERROR_FUNCTION_NOT_SUPPORTED: return "LEP_SERROR_FUNCTION_NOT_SUPPORTED";
+	default: return "";
+	}
+}
+
 
 //2.1.3.3 Command ID
 //For each of the Lepton camera modules, a unique Lepton Command ID identifies an element of the
@@ -344,11 +373,15 @@ enum lep_shutter_pos
 //This function gets and sets the GPIO pins mode.
 enum lep_gpio
 {
+	//Putting LEP_GPIO_MODE causes error = -7 <=> "Camera undefined function error"
+	//Can be put to LEP_GPIO_MODE by rebooting:
 	LEP_GPIO_MODE = 0,
+	//No documentation for these:
 	LEP_GPIO_I2C_MASTER = 1,
 	LEP_GPIO_SPI_MASTER_VLB_DATA = 2,
 	LEP_GPIO_SPIO_MASTER_REG_DATA = 3,
 	LEP_GPIO_SPI_SLAVE_VLB_DATA = 4,
+	//The Lepton Camera issues a pulse on GPIO3 when there is an inter VSync:
 	LEP_GPIO_VSYNC = 5
 };
 

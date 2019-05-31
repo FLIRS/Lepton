@@ -176,7 +176,7 @@ int main (int argc, char * argv [])
 			case 'h':
 			printf ("-h      : Help\n");
 			printf ("-s      : Print status\n");
-			printf ("-v0     : Disable vsync\n");
+			printf ("-v0     : Disable vsync (does not work)\n");
 			printf ("-v1     : Enable vsync\n");
 			printf ("-vq     : Print vsync\n");
 			printf ("-d<n>   : Set vsync delay\n");
@@ -203,17 +203,21 @@ int main (int argc, char * argv [])
 			
 			case 'v':
 			if (optarg == NULL) {break;}
-			if (optarg [0] == 'q')
+			else if (optarg [0] == 'q')
 			{
 				app_print_gpio (fd);
 			}
-			if (optarg [0] == '1')
+			else if (optarg [0] == '1')
 			{
 				app_set_gpio (fd, LEP_GPIO_VSYNC);
 			}
-			if (optarg [0] == '0')
+			else if (optarg [0] == '0')
 			{
 				app_set_gpio (fd, LEP_GPIO_MODE);
+			}
+			else if (optarg [0] == '7')
+			{
+				app_set_gpio (fd, 7);
 			}
 			break;
 			
