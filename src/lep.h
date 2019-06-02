@@ -50,7 +50,8 @@
 
 //Reset errno.
 //Used for debugging.
-#define LEP_BEGIN_SYSTEM_CALL (errno = 0)
+//#define LEP_BEGIN_SYSTEM_CALL (errno = 0)
+#define LEP_BEGIN_SYSTEM_CALL
 
 
 //Unofficial result
@@ -820,20 +821,24 @@ int lep_create_gpiofd (int pin)
 	int r;
 	//TODO: unexport, is this preferable?
 	fd = lep_openf (O_WRONLY, "/sys/class/gpio/%s", "unexport");
+	if (fd < 0) {return fd;}
 	r = lep_writef_nocheck (fd, "%i", pin);
 	close (fd);
 	//Enable the gpio pin.
 	fd = lep_openf (O_WRONLY, "/sys/class/gpio/%s", "export");
+	if (fd < 0) {return fd;}
 	r = lep_writef (fd, "%i", pin);
 	if (r < 0) {return r;}
 	close (fd);
 	//Set the gpio pin to input
 	fd = lep_openf (O_WRONLY, "/sys/class/gpio/gpio%i/direction", pin);
+	if (fd < 0) {return fd;}
 	r = lep_writef (fd, "%s", "in");
 	if (r < 0) {return r;}
 	close (fd);
 	//Set the gpio pin to trigger at rising edge.
 	fd = lep_openf (O_WRONLY, "/sys/class/gpio/gpio%i/edge", pin);
+	if (fd < 0) {return fd;}
 	r = lep_writef (fd, "%s", "rising");
 	if (r < 0) {return r;}
 	close (fd);
